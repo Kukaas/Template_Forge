@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import CustomButton from './CustomButton';
-import { FileText, Download, Star, Edit, Trash2, Eye, X, Lock } from 'lucide-react';
+import { FileText, Download, Star, Edit, Trash2, Eye, X, Lock, Copy } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -156,6 +156,42 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete, onSaveS
     navigate('/pricing');
   };
 
+  const handleEditCopy = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (template.is_premium && !hasAccess(template)) {
+      toast.error('This is a premium template. Please upgrade your account to edit.');
+      navigate('/pricing');
+      return;
+    }
+
+    try {
+      // Create a copy of the template for the user
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/templates/${template.id}/copy`,
+        {
+          method: 'POST',
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to create template copy');
+      }
+
+      const data = await response.json();
+      toast.success('Template copy created successfully');
+      // Navigate to editor with the new copy's ID
+      navigate(`/editor/${data.data.id}`);
+    } catch (error) {
+      console.error('Error creating template copy:', error);
+      toast.error('Failed to create template copy');
+    }
+  };
+
   return (
     <>
       <div className="group relative border rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-200 bg-card">
@@ -189,15 +225,75 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete, onSaveS
           {template.description}
         </p>
 
-        {/* Footer Section */}
+        {/* Footer Section with improved responsive layout */}
         <div className="space-y-3">
           {/* File Type */}
           <div className="text-xs sm:text-sm text-muted-foreground">
             {template.file_type?.split('/')[1]?.toUpperCase() || 'Unknown'}
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          {/* Action Buttons with improved grid layout */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {/* Preview Button - Always visible */}
+            <CustomButton
+              variant="outline"
+              size="sm"
+              onClick={handlePreview}
+              className="w-full col-span-2 sm:col-span-1"
+            >
+              <Eye className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Preview</span>
+            </CustomButton>
+
+            {/* Save/Unsave Button */}
+            <CustomButton
+              variant="outline"
+              size="sm"
+              onClick={handleSaveClick}
+              className={`w-full ${isSaved ? 'bg-primary/10' : ''}`}
+              disabled={isLoading}
+            >
+              <Star className={`h-4 w-4 sm:mr-2 ${isSaved ? 'fill-primary' : ''}`} />
+              <span className="hidden sm:inline">{isSaved ? 'Saved' : 'Save'}</span>
+            </CustomButton>
+
+            {/* Edit Copy Button - Only show if saved */}
+            {isSaved && (
+              <CustomButton
+                variant="outline"
+                size="sm"
+                onClick={handleEditCopy}
+                className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+                <Copy className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Edit Copy</span>
+              </CustomButton>
+            )}
+
+            {/* Download or Premium Button */}
+            {template.is_premium && !hasAccess(template) ? (
+              <CustomButton
+                variant="gradient"
+                size="sm"
+                onClick={handleUpgrade}
+                className="w-full"
+              >
+                <Lock className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Premium</span>
+              </CustomButton>
+            ) : (
+              <CustomButton
+                variant="default"
+                size="sm"
+                onClick={handleDownload}
+                className="w-full bg-primary hover:bg-primary/90 transition-colors"
+              >
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Download</span>
+              </CustomButton>
+            )}
+
+            {/* Admin Actions - Only show in admin section */}
             {showActions && isAdminSection && (
               <>
                 <CustomButton
@@ -219,46 +315,6 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete, onSaveS
                   <span className="hidden sm:inline">Delete</span>
                 </CustomButton>
               </>
-            )}
-            <CustomButton
-              variant="outline"
-              size="sm"
-              onClick={handlePreview}
-              className="w-full"
-            >
-              <Eye className="h-4 w-4 sm:mr-2" />
-              <span>Preview</span>
-            </CustomButton>
-            <CustomButton
-              variant="outline"
-              size="sm"
-              onClick={handleSaveClick}
-              className={`w-full ${isSaved ? 'bg-primary/10' : ''}`}
-              disabled={isLoading}
-            >
-              <Star className={`h-4 w-4 sm:mr-2 ${isSaved ? 'fill-primary' : ''}`} />
-              <span>{isSaved ? 'Saved' : 'Save'}</span>
-            </CustomButton>
-            {template.is_premium && !hasAccess(template) ? (
-              <CustomButton
-                variant="gradient"
-                size="sm"
-                onClick={handleUpgrade}
-                className="w-full"
-              >
-                <Lock className="h-4 w-4 sm:mr-2" />
-                <span>Premium</span>
-              </CustomButton>
-            ) : (
-              <CustomButton
-                variant="default"
-                size="sm"
-                onClick={handleDownload}
-                className="w-full bg-primary hover:bg-primary/90 transition-colors"
-              >
-                <Download className="h-4 w-4 sm:mr-2" />
-                <span>Download</span>
-              </CustomButton>
             )}
           </div>
         </div>

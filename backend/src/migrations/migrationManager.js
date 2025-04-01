@@ -4,6 +4,7 @@ import * as createTemplatesTable from './20240101000001_create_templates_table.j
 import * as addPremiumToUsers from './20240101000003_add_premium_to_users.js';
 import * as createSubscriptionsTable from './20240101000004_create_subscriptions_table.js';
 import * as createSavedTemplatesTable from './20240101000005_create_saved_templates_table.js';
+import * as createCopiedTemplatesTable from './20240101000006_create_copied_templates_table.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -12,7 +13,8 @@ const migrations = [
   addPremiumToUsers,
   createTemplatesTable,
   createSubscriptionsTable,
-  createSavedTemplatesTable
+  createSavedTemplatesTable,
+  createCopiedTemplatesTable,
 ];
 
 const checkEnvironment = () => {

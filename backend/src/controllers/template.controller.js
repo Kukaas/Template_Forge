@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import UserModel from '../models/user.model.js';
 import promisePool from '../config/db.config.js';
+import { v4 as uuidv4 } from 'uuid';
+import fsPromises from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,14 +26,85 @@ export const getTemplates = async (req, res) => {
 // Get a single template by ID
 export const getTemplateById = async (req, res) => {
   try {
-    const template = await Template.findById(req.params.id);
-    if (!template) {
-      return res.status(404).json({ message: 'Template not found' });
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    // First check copied templates
+    const [copiedTemplate] = await promisePool.query(
+      `SELECT ct.*,
+              t.title as original_title,
+              t.is_premium as original_is_premium
+       FROM copied_templates ct
+       LEFT JOIN templates t ON ct.original_template_id = t.id
+       WHERE ct.id = ?`,
+      [id]
+    );
+
+    if (copiedTemplate.length > 0) {
+      // If it's a copied template, verify ownership
+      if (copiedTemplate[0].user_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
+      return res.json({
+        success: true,
+        data: {
+          ...copiedTemplate[0],
+          file_path: `/uploads/copies/${copiedTemplate[0].file_name}`
+        },
+        type: 'copy'
+      });
     }
-    res.json(template);
+
+    // If not found in copied_templates, check original templates
+    const [template] = await promisePool.query(
+      `SELECT t.*, u.name as creator_name
+       FROM templates t
+       LEFT JOIN users u ON t.created_by = u.id
+       WHERE t.id = ?`,
+      [id]
+    );
+
+    if (!template.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found'
+      });
+    }
+
+    // Check if user has access to premium template
+    if (template[0].is_premium) {
+      const [userStatus] = await promisePool.query(
+        `SELECT is_premium, role FROM users WHERE id = ?`,
+        [userId]
+      );
+
+      const hasAccess = userStatus.length > 0 &&
+        (userStatus[0].is_premium || userStatus[0].role === 'super_admin');
+
+      if (!hasAccess) {
+        return res.status(403).json({
+          success: false,
+          message: 'Premium template requires subscription'
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: template[0],
+      type: 'original'
+    });
+
   } catch (error) {
-    console.error('Error fetching template:', error);
-    res.status(500).json({ message: 'Error fetching template' });
+    console.error('Error getting template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting template',
+      error: error.message
+    });
   }
 };
 
@@ -531,6 +604,391 @@ export const checkSavedStatus = async (req, res) => {
       success: false,
       message: 'Error checking saved status',
       error: error.message // Add error message for debugging
+    });
+  }
+};
+
+export const createTemplateCopy = async (req, res) => {
+  try {
+    const { id: templateId } = req.params;
+    const userId = req.user.id;
+
+    // First, get the original template
+    const [template] = await promisePool.query(
+      'SELECT * FROM templates WHERE id = ?',
+      [templateId]
+    );
+
+    if (!template.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found'
+      });
+    }
+
+    const originalTemplate = template[0];
+    const newId = uuidv4();
+
+    // Create new file path for the copy
+    const fileExt = path.extname(originalTemplate.file_name);
+    const newFileName = `${newId}${fileExt}`;
+    const newFilePath = path.join('uploads', 'copies', newFileName);
+
+    // Create copies directory if it doesn't exist
+    await fsPromises.mkdir(path.join('uploads', 'copies'), { recursive: true });
+
+    // Copy the actual file
+    await fsPromises.copyFile(originalTemplate.file_path, newFilePath);
+
+    // Create a copy record in the copied_templates table
+    await promisePool.query(
+      `INSERT INTO copied_templates (
+        id, original_template_id, user_id, title, description,
+        category, main_category, file_path, file_name,
+        file_type, file_size
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newId,
+        templateId,
+        userId,
+        `${originalTemplate.title} (Copy)`,
+        originalTemplate.description,
+        originalTemplate.category,
+        originalTemplate.main_category,
+        newFilePath,
+        newFileName,
+        originalTemplate.file_type,
+        originalTemplate.file_size
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Template copy created successfully',
+      data: {
+        id: newId
+      }
+    });
+  } catch (error) {
+    console.error('Error creating template copy:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating template copy',
+      error: error.message
+    });
+  }
+};
+
+// Add new function to get user's copied templates
+export const getCopiedTemplates = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [copiedTemplates] = await promisePool.query(
+      `SELECT ct.*,
+              t.title as original_title,
+              t.description as original_description,
+              t.is_premium as original_is_premium,
+              t.file_path,
+              t.file_name,
+              DATE_FORMAT(ct.created_at, '%Y-%m-%dT%H:%i:%s.000Z') as created_at,
+              DATE_FORMAT(ct.last_edited, '%Y-%m-%dT%H:%i:%s.000Z') as last_edited
+       FROM copied_templates ct
+       LEFT JOIN templates t ON ct.original_template_id = t.id
+       WHERE ct.user_id = ?
+       ORDER BY ct.created_at DESC`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: copiedTemplates.map(template => ({
+        id: template.id,
+        title: template.title || template.original_title,
+        description: template.description || template.original_description,
+        is_premium: template.original_is_premium,
+        file_path: template.file_path,
+        file_name: template.file_name,
+        created_at: template.created_at,
+        last_edited: template.last_edited,
+        original_title: template.original_title,
+        is_copy: true,
+        category: template.category,
+        main_category: template.main_category
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error getting copied templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting copied templates',
+      error: error.message
+    });
+  }
+};
+
+// Add function to update copied template
+export const updateCopiedTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const updates = req.body;
+
+    // Verify ownership
+    const [template] = await promisePool.query(
+      'SELECT id FROM copied_templates WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    if (!template.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Copied template not found or access denied'
+      });
+    }
+
+    // Update the template
+    await promisePool.query(
+      `UPDATE copied_templates
+       SET title = ?, description = ?, category = ?
+       WHERE id = ? AND user_id = ?`,
+      [updates.title, updates.description, updates.category, id, userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Template updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating copied template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating template',
+      error: error.message
+    });
+  }
+};
+
+export const updateCopiedTemplateContent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, preview_url, title, description } = req.body;
+    const userId = req.user.id;
+
+    // Verify ownership
+    const [template] = await promisePool.query(
+      'SELECT * FROM copied_templates WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    if (!template.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found or access denied'
+      });
+    }
+
+    // Save the content and preview
+    await promisePool.query(
+      `UPDATE copied_templates
+       SET content = ?,
+           preview_url = ?,
+           title = ?,
+           description = ?,
+           last_edited = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [content, preview_url, title, description, id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Template content updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error updating template content:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating template content',
+      error: error.message
+    });
+  }
+};
+
+export const updateTemplate = async (req, res) => {
+  try {
+    const { templateId, content, previewUrl, title, description } = req.body;
+    const userId = req.user.id;
+    const pdfFile = req.file;
+
+    // First check if it's a copied template
+    const [copiedTemplate] = await promisePool.query(
+      'SELECT * FROM copied_templates WHERE id = ? AND user_id = ?',
+      [templateId, userId]
+    );
+
+    if (copiedTemplate.length > 0) {
+      // Update copied template with new PDF path and content
+      await promisePool.query(
+        `UPDATE copied_templates
+         SET content = ?,
+             preview_url = ?,
+             title = ?,
+             description = ?,
+             file_path = ?,
+             file_name = ?,
+             last_edited = CURRENT_TIMESTAMP
+         WHERE id = ? AND user_id = ?`,
+        [
+          content,
+          previewUrl,
+          title,
+          description,
+          pdfFile ? `uploads/copies/${pdfFile.filename}` : copiedTemplate[0].file_path,
+          pdfFile ? pdfFile.filename : copiedTemplate[0].file_name,
+          templateId,
+          userId
+        ]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Template updated successfully'
+      });
+    }
+
+    // If not a copied template, check original templates
+    const [originalTemplate] = await promisePool.query(
+      'SELECT * FROM templates WHERE id = ? AND created_by = ?',
+      [templateId, userId]
+    );
+
+    if (!originalTemplate.length) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this template'
+      });
+    }
+
+    // Update original template
+    await promisePool.query(
+      `UPDATE templates
+       SET content = ?,
+           preview_url = ?,
+           title = ?,
+           description = ?,
+           updated_at = NOW()
+       WHERE id = ? AND created_by = ?`,
+      [content, previewUrl, title, description, templateId, userId]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Template updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating template',
+      error: error.message
+    });
+  }
+};
+
+export const deleteCopiedTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // First get the template to get the file path
+    const [template] = await promisePool.query(
+      'SELECT * FROM copied_templates WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    if (!template.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found or access denied'
+      });
+    }
+
+    // Delete the physical file
+    const filePath = template[0].file_path;
+    if (fs.existsSync(filePath)) {
+      await fsPromises.unlink(filePath);
+    }
+
+    // Delete from database
+    await promisePool.query(
+      'DELETE FROM copied_templates WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Template deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting copied template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting template',
+      error: error.message
+    });
+  }
+};
+
+export const downloadCopiedTemplate = async (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const userId = req.user?.id;
+
+    // Get the copied template
+    const [copiedTemplate] = await promisePool.query(
+      'SELECT * FROM copied_templates WHERE id = ? AND user_id = ?',
+      [templateId, userId]
+    );
+
+    if (!copiedTemplate.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found or access denied'
+      });
+    }
+
+    const template = copiedTemplate[0];
+
+    // Check if file exists
+    if (!fs.existsSync(template.file_path)) {
+      console.error('File not found:', template.file_path);
+      return res.status(404).json({
+        success: false,
+        message: 'Template file not found'
+      });
+    }
+
+    // Get file stats
+    const stat = fs.statSync(template.file_path);
+    const fileSize = stat.size;
+
+    // Set response headers for download
+    res.setHeader('Content-Length', fileSize);
+    res.setHeader('Content-Type', template.file_type || 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${template.title}.pdf"`);
+
+    // Stream the file
+    const fileStream = fs.createReadStream(template.file_path);
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error downloading copied template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error downloading template',
+      error: error.message
     });
   }
 };

@@ -15,6 +15,8 @@ import SuperAdmin from './pages/admin/SuperAdmin';
 import ManageTemplates from './pages/admin/ManageTemplates';
 import Pricing from './pages/Pricing';
 import SavedTemplates from './pages/SavedTemplates';
+import Editor from './pages/Editor';
+import CopiedTemplates from './pages/CopiedTemplates';
 
 const queryClient = new QueryClient();
 
@@ -99,6 +101,26 @@ function App() {
                 element={
                   <PrivateRoute>
                     <SavedTemplates />
+                  </PrivateRoute>
+                }
+              />
+
+              {/* Add Editor Route */}
+              <Route
+                path="/editor/:templateId"
+                element={
+                  <PrivateRoute>
+                    <Editor />
+                  </PrivateRoute>
+                }
+              />
+
+              {/* Add Copied Templates Route */}
+              <Route
+                path="/copied-templates"
+                element={
+                  <PrivateRoute>
+                    <CopiedTemplates />
                   </PrivateRoute>
                 }
               />

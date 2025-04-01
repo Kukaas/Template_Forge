@@ -12,15 +12,20 @@ import paymentRoutes from './routes/payment.routes.js';
 import initializePassport from './config/passport.config.js';
 import { handleAuthCallback, serializeUser, deserializeUser } from './controllers/auth.controller.js';
 import savedTemplateRoutes from './routes/savedTemplate.routes.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Load environment variables before any other imports
 dotenv.config();
 
 const app = express();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // CORS configuration - must be before passport
 app.use(cors({
@@ -49,7 +54,7 @@ app.use(passport.session());
 initializePassport(handleAuthCallback, serializeUser, deserializeUser);
 
 // Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
