@@ -6,6 +6,8 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import RootLayout from './layouts/RootLayout';
 import { AuthProvider } from './lib/auth';
+import Templates from './pages/Templates';
+import PrivateTemplates from './pages/PrivateTemplates';
 
 const queryClient = new QueryClient();
 
@@ -19,6 +21,7 @@ function App() {
               {/* Public Routes */}
               <Route index element={<Home />} />
               <Route path="login" element={<Login />} />
+              <Route path="templates" element={<Templates />} />
               
               {/* Private Routes */}
               <Route
@@ -26,6 +29,14 @@ function App() {
                 element={
                   <PrivateRoute>
                     <Dashboard />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="templates/premium"
+                element={
+                  <PrivateRoute>
+                    <PrivateTemplates />
                   </PrivateRoute>
                 }
               />

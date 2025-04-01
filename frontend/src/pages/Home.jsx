@@ -19,14 +19,14 @@ const Home = () => {
         </p>
 
         <div className="flex flex-wrap justify-center gap-4 mt-8 animate-fade-up delay-300">
-          <Link to="/login">
+          <Link to="/templates">
             <CustomButton variant="gradient" size="lg">
-              Get Started <ArrowRight className="ml-2 h-4 w-4" />
+              Browse Templates <ArrowRight className="ml-2 h-4 w-4" />
             </CustomButton>
           </Link>
-          <Link to="/dashboard">
+          <Link to="/templates/premium">
             <CustomButton variant="outline" size="lg">
-              View Dashboard
+              Premium Templates
             </CustomButton>
           </Link>
         </div>

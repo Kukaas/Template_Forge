@@ -7,7 +7,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { Menu, LogOut, Home as HomeIcon, LayoutDashboard, ChevronRight } from 'lucide-react'
+import { Menu, LogOut, Home as HomeIcon, LayoutDashboard, ChevronRight, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils';
 
 const Navbar = () => {
@@ -33,6 +33,18 @@ const Navbar = () => {
       path: '/',
       icon: HomeIcon,
       show: true
+    },
+    {
+      name: 'Templates',
+      path: '/templates',
+      icon: FileText,
+      show: true
+    },
+    {
+      name: 'Premium Templates',
+      path: '/templates/premium',
+      icon: FileText,
+      show: isAuthenticated
     },
     {
       name: 'Dashboard',
