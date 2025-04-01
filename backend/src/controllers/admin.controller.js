@@ -35,7 +35,7 @@ const upload = multer({
       'application/vnd.ms-powerpoint',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -48,41 +48,33 @@ export const uploadTemplate = upload.single('file');
 
 export const createTemplate = async (req, res) => {
   try {
-    console.log('Request body:', req.body);
-    console.log('Request file:', req.file);
-    console.log('Request headers:', req.headers);
-
     if (!req.file) {
-      return res.status(400).json({ 
-        message: 'No file uploaded',
-        details: 'The file field is missing or empty in the request'
-      });
+      return res.status(400).json({ message: 'No file uploaded' });
     }
+
+    // Ensure file path is absolute
+    const filePath = path.resolve(req.file.path);
 
     const templateData = {
       title: req.body.title,
       description: req.body.description,
       category: req.body.category,
       mainCategory: req.body.mainCategory,
-      filePath: req.file.path,
+      filePath: filePath, // Use absolute path
       fileName: req.file.originalname,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      isPremium: req.body.isPremium
     };
 
-    console.log('Template data to be created:', templateData);
-
     const templateId = await Template.create(templateData);
-    res.status(201).json({ 
-      message: 'Template created successfully',
-      templateId 
-    });
+    res.status(201).json({ id: templateId, message: 'Template created successfully' });
   } catch (error) {
     console.error('Error creating template:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error creating template',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -119,7 +111,7 @@ export const updateTemplate = async (req, res) => {
   try {
     const templateId = req.params.id;
     const existingTemplate = await Template.findById(templateId);
-    
+
     if (!existingTemplate) {
       return res.status(404).json({ message: 'Template not found' });
     }
@@ -152,34 +144,54 @@ export const updateTemplate = async (req, res) => {
       return res.status(404).json({ message: 'Template not found' });
     }
 
-    res.json({ 
+    res.json({
       message: 'Template updated successfully',
       template: await Template.findById(templateId)
     });
   } catch (error) {
     console.error('Error updating template:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error updating template',
-      error: error.message 
+      error: error.message
     });
   }
 };
 
 export const deleteTemplate = async (req, res) => {
   try {
-    const template = await Template.findById(req.params.id);
+    const templateId = req.params.id;
+
+    // First, get the template details to find the file path
+    const template = await Template.findById(templateId);
+
     if (!template) {
       return res.status(404).json({ message: 'Template not found' });
     }
 
-    // Delete the file from storage
-    fs.unlinkSync(template.file_path);
+    // Delete the file if it exists
+    if (template.file_path && fs.existsSync(template.file_path)) {
+      try {
+        fs.unlinkSync(template.file_path);
+      } catch (fileError) {
+        console.error('Error deleting file:', fileError);
+        // Continue with template deletion even if file deletion fails
+      }
+    }
 
-    const success = await Template.delete(req.params.id);
+    // Delete the template from the database
+    const deleted = await Template.delete(templateId);
+
+    if (!deleted) {
+      return res.status(404).json({ message: 'Template not found' });
+    }
+
     res.json({ message: 'Template deleted successfully' });
   } catch (error) {
-    console.error('Error deleting template:', error);
-    res.status(500).json({ message: 'Error deleting template' });
+    console.error('Error in deleteTemplate:', error);
+    res.status(500).json({
+      message: 'Error deleting template',
+      error: error.message
+    });
   }
 };
 
@@ -195,4 +207,4 @@ export const getAdminDashboardData = async (req, res) => {
     console.error('Error in admin dashboard:', error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
-}; 
+};

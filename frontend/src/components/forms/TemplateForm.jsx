@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CustomButton } from '../custom-components';
 import { Loader2 } from 'lucide-react';
+import { Switch } from '../ui/switch';
 
 const templateSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title is too long'),
@@ -11,6 +12,7 @@ const templateSchema = z.object({
   mainCategory: z.enum(['business', 'academic', 'resume'], {
     required_error: 'Please select a main category',
   }),
+  isPremium: z.boolean().default(false),
   file: z.any()
     .refine((file) => {
       // If we're editing and no new file is selected, it's valid
@@ -24,14 +26,14 @@ const templateSchema = z.object({
       if (!file || !file[0]) {
         return true;
       }
-      
+
       const fileObj = file[0];
       console.log('File type:', fileObj.type);
-      
+
       // Check file extension
       const fileName = fileObj.name?.toLowerCase() || '';
       const validExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
-      
+
       // Check both MIME type and extension
       const validTypes = [
         'application/pdf',
@@ -42,8 +44,8 @@ const templateSchema = z.object({
         'application/vnd.ms-powerpoint',
         'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       ];
-      
-      return validTypes.includes(fileObj.type) || 
+
+      return validTypes.includes(fileObj.type) ||
              validExtensions.some(ext => fileName.endsWith(ext));
     }, 'Invalid file type. Only PDF, Word, Excel, and PowerPoint files are allowed.')
     .refine((file) => {
@@ -66,22 +68,30 @@ const TemplateForm = ({ onSubmit, initialData, isLoading }) => {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(templateSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       title: '',
       description: '',
       category: '',
       mainCategory: '',
+      isPremium: false,
       file: null,
+      ...initialData
     },
   });
 
   const mainCategory = watch('mainCategory');
+  const isPremium = watch('isPremium');
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => {
+      // Log the data to see what's being sent
+      console.log('Form data before submit:', data);
+      onSubmit(data);
+    })} className="space-y-6">
       <div>
         <label htmlFor="title" className="block text-sm font-medium mb-1">
           Title
@@ -184,6 +194,28 @@ const TemplateForm = ({ onSubmit, initialData, isLoading }) => {
         {errors.file && (
           <p className="mt-1 text-sm text-red-500">{errors.file.message}</p>
         )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="text-sm font-medium">Premium Template</label>
+          <p className="text-xs text-muted-foreground">
+            Premium templates are only accessible to premium users
+          </p>
+        </div>
+        <Switch
+          id="isPremium"
+          checked={isPremium}
+          onCheckedChange={(checked) => {
+            console.log('Switch value changed to:', checked); // Debug log
+            setValue('isPremium', checked, { shouldValidate: true });
+          }}
+        />
+        <input
+          type="hidden"
+          {...register('isPremium')}
+          value={isPremium ? '1' : '0'}
+        />
       </div>
 
       <CustomButton

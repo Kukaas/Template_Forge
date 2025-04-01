@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CustomButton, CustomBadge, TemplateCard } from '../../components/custom-components';
 import { Search, Plus, X } from 'lucide-react';
@@ -107,21 +107,37 @@ const ManageTemplates = () => {
   });
 
   const handleSubmit = async (data) => {
+    console.log('Form data received:', data); // Debug log
+
     const formData = new FormData();
-    Object.keys(data).forEach(key => {
-      if (key === 'file') {
-        // Handle file upload
-        if (data[key] && data[key][0]) {
-          formData.append('file', data[key][0]);
-        }
-      } else if (key !== 'id') { // Don't append the id to formData
-        formData.append(key, data[key]);
-      }
-    });
+
+    // Add each field individually to FormData
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('category', data.category);
+    formData.append('mainCategory', data.mainCategory);
+
+    // Explicitly convert boolean to string '1' or '0'
+    const isPremiumValue = data.isPremium === true ? '1' : '0';
+    console.log('Setting isPremium value:', isPremiumValue); // Debug log
+    formData.append('isPremium', isPremiumValue);
+
+    // Add file if it exists
+    if (data.file && data.file[0]) {
+      formData.append('file', data.file[0]);
+    }
+
+    // Debug log to verify FormData contents
+    for (let pair of formData.entries()) {
+      console.log('FormData entry:', pair[0], pair[1]);
+    }
 
     try {
       if (editingTemplate) {
-        await updateMutation.mutateAsync({ id: editingTemplate.id, formData });
+        await updateMutation.mutateAsync({
+          id: editingTemplate.id,
+          formData
+        });
       } else {
         await createMutation.mutateAsync(formData);
       }
@@ -132,16 +148,17 @@ const ManageTemplates = () => {
   };
 
   const handleEdit = (template) => {
-    // Convert the template data to match the form's expected format
     const formData = {
-      id: template.id, // Add the template ID
+      id: template.id,
       title: template.title,
       description: template.description,
       category: template.category,
       mainCategory: template.main_category,
-      fileName: template.file_name, // Add the file name
-      file: null // We don't need to set the file for editing
+      fileName: template.file_name,
+      isPremium: template.is_premium === 1 || template.is_premium === true,
+      file: null
     };
+    console.log('Editing template with isPremium:', formData.isPremium); // Debug log
     setEditingTemplate(formData);
     setIsFormOpen(true);
   };
@@ -192,9 +209,9 @@ const ManageTemplates = () => {
               </CustomButton>
             ))}
           </div>
-          <CustomButton 
-            variant="gradient" 
-            size="sm" 
+          <CustomButton
+            variant="gradient"
+            size="sm"
             className="whitespace-nowrap"
             onClick={() => {
               setEditingTemplate(null);
@@ -209,8 +226,8 @@ const ManageTemplates = () => {
         {/* Templates Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {templates.map(template => (
-            <TemplateCard 
-              key={template.id} 
+            <TemplateCard
+              key={template.id}
               template={template}
               showActions={true}
               onEdit={() => handleEdit(template)}
@@ -253,4 +270,4 @@ const ManageTemplates = () => {
   );
 };
 
-export default ManageTemplates; 
+export default ManageTemplates;

@@ -3,6 +3,7 @@ import path from 'path';
 import Template from '../models/template.model.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import UserModel from '../models/user.model.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -41,6 +42,16 @@ export const downloadTemplate = async (req, res) => {
 
     if (!template) {
       return res.status(404).json({ message: 'Template not found' });
+    }
+
+    // Check if template is premium and user has premium access
+    if (template.is_premium) {
+      const isPremium = await UserModel.isUserPremium(req.user?.id);
+      if (!isPremium) {
+        return res.status(403).json({
+          message: 'This is a premium template. Please upgrade your account to access it.'
+        });
+      }
     }
 
     // Check if file exists
@@ -105,7 +116,7 @@ export const getTemplatePreview = async (req, res) => {
 
     // Get file extension
     const fileExt = path.extname(template.file_name).toLowerCase();
-    
+
     // Handle different file types
     switch (fileExt) {
       case '.pdf':
@@ -121,57 +132,164 @@ export const getTemplatePreview = async (req, res) => {
       case '.xlsx':
       case '.ppt':
       case '.pptx':
-        // For Office documents, send a preview page
+        // For Office documents, send a preview page with premium blur effect
         const previewHtml = `
           <!DOCTYPE html>
           <html>
             <head>
               <title>${template.title} - Preview</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
+                :root {
+                  --primary: #007bff;
+                  --primary-hover: #0056b3;
+                  --bg: #ffffff;
+                  --text: #333333;
+                  --text-muted: #666666;
+                  --border: #e5e7eb;
+                }
+
+                * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+                }
+
                 body {
                   font-family: system-ui, -apple-system, sans-serif;
-                  margin: 0;
-                  padding: 20px;
-                  background: #f5f5f5;
+                  line-height: 1.5;
+                  color: var(--text);
+                  background: var(--bg);
                 }
+
                 .preview-container {
+                  width: 100%;
                   max-width: 800px;
                   margin: 0 auto;
-                  background: white;
-                  padding: 20px;
-                  border-radius: 8px;
-                  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  padding: 1rem;
                 }
+
                 .preview-header {
+                  margin-bottom: 2rem;
                   text-align: center;
-                  margin-bottom: 20px;
                 }
+
+                .preview-header h1 {
+                  font-size: clamp(1.5rem, 4vw, 2rem);
+                  font-weight: 600;
+                  margin-bottom: 0.5rem;
+                }
+
+                .preview-header p {
+                  color: var(--text-muted);
+                  font-size: clamp(0.875rem, 2vw, 1rem);
+                }
+
                 .preview-content {
-                  text-align: center;
-                  padding: 40px;
                   background: #f8f9fa;
-                  border-radius: 4px;
+                  border-radius: 0.5rem;
+                  padding: clamp(1.5rem, 4vw, 2.5rem);
+                  text-align: center;
+                  position: relative;
+                  overflow: hidden;
                 }
+
                 .preview-icon {
-                  font-size: 48px;
-                  margin-bottom: 16px;
-                  color: #666;
+                  font-size: clamp(2rem, 6vw, 3rem);
+                  margin-bottom: 1rem;
+                  color: var(--text-muted);
                 }
+
                 .preview-text {
-                  color: #666;
-                  margin-bottom: 20px;
+                  color: var(--text-muted);
+                  margin-bottom: 1.5rem;
+                  font-size: clamp(0.875rem, 2vw, 1rem);
                 }
+
                 .download-button {
                   display: inline-block;
-                  padding: 8px 16px;
-                  background: #007bff;
+                  padding: 0.75rem 1.5rem;
+                  background: var(--primary);
                   color: white;
                   text-decoration: none;
-                  border-radius: 4px;
-                  transition: background 0.2s;
+                  border-radius: 0.375rem;
+                  font-size: 0.875rem;
+                  font-weight: 500;
+                  transition: background-color 0.2s;
                 }
+
                 .download-button:hover {
-                  background: #0056b3;
+                  background: var(--primary-hover);
+                }
+
+                .preview-scroll {
+                  max-height: 60vh;
+                  overflow-y: auto;
+                  padding: 1rem;
+                  background: white;
+                  border-radius: 0.5rem;
+                  margin-top: 1rem;
+                  position: relative;
+                }
+
+                /* New styles for premium preview */
+                .premium-content {
+                  position: relative;
+                }
+
+                .premium-content::before {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background: linear-gradient(
+                    to bottom,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.8) 70%,
+                    rgba(255, 255, 255, 0.95) 100%
+                  );
+                  pointer-events: none;
+                  z-index: 2;
+                }
+
+                .premium-content .content {
+                  filter: blur(2px);
+                  opacity: 0.8;
+                }
+
+                .premium-message {
+                  position: absolute;
+                  bottom: 20%;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  background: rgba(0, 0, 0, 0.8);
+                  color: white;
+                  padding: 1rem 2rem;
+                  border-radius: 0.5rem;
+                  z-index: 3;
+                  text-align: center;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }
+
+                .premium-badge {
+                  position: absolute;
+                  top: 1rem;
+                  right: 1rem;
+                  background: linear-gradient(45deg, #FFD700, #FFA500);
+                  color: white;
+                  padding: 0.5rem 1rem;
+                  border-radius: 0.375rem;
+                  font-weight: 500;
+                  z-index: 3;
+                  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                }
+
+                @media (max-width: 640px) {
+                  .preview-container {
+                    padding: 0.75rem;
+                  }
                 }
               </style>
             </head>
@@ -182,13 +300,31 @@ export const getTemplatePreview = async (req, res) => {
                   <p>${template.description}</p>
                 </div>
                 <div class="preview-content">
-                  <div class="preview-icon">📄</div>
-                  <div class="preview-text">
-                    This is a ${fileExt.substring(1).toUpperCase()} file.<br>
-                    Please download to view the full content.
-                  </div>
+                  ${template.is_premium ? `
+                    <div class="premium-badge">Premium Template</div>
+                    <div class="premium-content">
+                      <div class="content">
+                        <p style="margin-bottom: 1rem;">This is a premium template preview.</p>
+                        <p style="margin-bottom: 1rem;">The content includes professional formatting and structure.</p>
+                        <p style="margin-bottom: 1rem;">Upgrade to premium to access the full template.</p>
+                        <p style="margin-bottom: 1rem;">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                        <p style="margin-bottom: 1rem;">Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                        <p style="margin-bottom: 1rem;">Ut enim ad minim veniam, quis nostrud exercitation ullamco.</p>
+                        <p style="margin-bottom: 1rem;">Laboris nisi ut aliquip ex ea commodo consequat.</p>
+                        <p style="margin-bottom: 1rem;">Duis aute irure dolor in reprehenderit in voluptate velit.</p>
+                      </div>
+                      <div class="premium-message">
+                        🔒 Upgrade to Premium to Access Full Template
+                      </div>
+                    </div>
+                  ` : `
+                    <div class="preview-scroll">
+                      <p style="margin-bottom: 1rem;">This is a preview of the template content.</p>
+                      <p style="margin-bottom: 1rem;">Download the template to view the full content.</p>
+                    </div>
+                  `}
                   <a href="/api/templates/${templateId}/download" class="download-button">
-                    Download Template
+                    ${template.is_premium ? 'Upgrade to Download' : 'Download Template'}
                   </a>
                 </div>
               </div>
@@ -207,4 +343,44 @@ export const getTemplatePreview = async (req, res) => {
     console.error('Error fetching template preview:', error);
     res.status(500).json({ message: 'Error fetching template preview' });
   }
-}; 
+};
+
+export const createTemplate = async (req, res) => {
+  try {
+    console.log('Request body:', req.body); // Debug log
+    console.log('Request file:', req.file); // Debug log
+    console.log('User:', req.user); // Debug log
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const templateData = {
+      title: req.body.title,
+      description: req.body.description,
+      category: req.body.category,
+      mainCategory: req.body.mainCategory,
+      filePath: req.file.path,
+      fileName: req.file.originalname,
+      fileType: req.file.mimetype,
+      fileSize: req.file.size,
+      createdBy: req.user.id,
+      isPremium: req.body.isPremium === '1' || req.body.isPremium === 'true'
+    };
+
+    console.log('Template data before creation:', templateData); // Debug log
+
+    const templateId = await Template.create(templateData);
+    res.status(201).json({ id: templateId, message: 'Template created successfully' });
+  } catch (error) {
+    console.error('Error creating template:', error);
+    res.status(500).json({
+      message: 'Error creating template',
+      error: error.message
+    });
+  }
+};

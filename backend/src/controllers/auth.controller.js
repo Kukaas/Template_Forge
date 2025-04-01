@@ -2,13 +2,29 @@ import passport from 'passport';
 import { v4 as uuidv4 } from 'uuid';
 import { UserModel } from '../models/user.model.js';
 
-export const loginSuccess = (req, res) => {
+export const loginSuccess = async (req, res) => {
   if (req.user) {
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      user: req.user
-    });
+    try {
+      const isPremium = await UserModel.isUserPremium(req.user.id);
+      res.status(200).json({
+        success: true,
+        message: "Login successful",
+        user: {
+          ...req.user,
+          isPremium
+        }
+      });
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+      res.status(200).json({
+        success: true,
+        message: "Login successful",
+        user: {
+          ...req.user,
+          isPremium: false
+        }
+      });
+    }
   } else {
     res.status(401).json({
       success: false,
@@ -33,7 +49,7 @@ export const logout = (req, res) => {
     if (err) {
       return res.status(500).json({ success: false, message: "Error logging out" });
     }
-    
+
     req.session.destroy((err) => {
       if (err) {
         console.error('Session destruction error:', err);
@@ -55,7 +71,7 @@ export const logout = (req, res) => {
   });
 };
 
-export const googleAuth = passport.authenticate('google', { 
+export const googleAuth = passport.authenticate('google', {
   scope: ['profile', 'email'],
   prompt: 'select_account'
 });
@@ -66,19 +82,19 @@ export const googleCallback = (req, res, next) => {
       console.error('Authentication error:', err);
       return next(err);
     }
-    
+
     if (!user) {
       console.log('Authentication failed: No user');
       return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
     }
-    
+
     req.logIn(user, (err) => {
       if (err) {
         console.error('Login error:', err);
         return next(err);
       }
       console.log('User logged in successfully');
-      
+
       // Send success message and close popup
       res.send(`
         <script>
@@ -90,7 +106,7 @@ export const googleCallback = (req, res, next) => {
   })(req, res, next);
 };
 
-export const githubAuth = passport.authenticate('github', { 
+export const githubAuth = passport.authenticate('github', {
   scope: ['user:email'],
   prompt: 'consent',
   access_type: 'offline',
@@ -104,19 +120,19 @@ export const githubCallback = (req, res, next) => {
       console.error('Authentication error:', err);
       return next(err);
     }
-    
+
     if (!user) {
       console.log('Authentication failed: No user');
       return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
     }
-    
+
     req.logIn(user, (err) => {
       if (err) {
         console.error('Login error:', err);
         return next(err);
       }
       console.log('User logged in successfully');
-      
+
       // Send success message and close popup
       res.send(`
         <script>
@@ -179,4 +195,29 @@ export const deserializeUser = async (id, done) => {
     console.error('Error deserializing user:', error);
     done(error, null);
   }
-}; 
+};
+
+export const checkPremiumStatus = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "User not authenticated",
+      isPremium: false
+    });
+  }
+
+  try {
+    const isPremium = await UserModel.isUserPremium(req.user.id);
+    res.status(200).json({
+      success: true,
+      isPremium
+    });
+  } catch (error) {
+    console.error('Error checking premium status:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error checking premium status",
+      isPremium: false
+    });
+  }
+};

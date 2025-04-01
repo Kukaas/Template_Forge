@@ -32,11 +32,14 @@ export class UserModel {
       const { id, email, name, avatar, provider, provider_id } = userData;
       // Check if this is the super admin email
       const role = email === 'senku8ypvrgjgy@gmail.com' ? 'super_admin' : 'user';
-      
+      // Set is_premium to true if the user is a super_admin
+      const isPremium = role === 'super_admin';
+
       const [result] = await promisePool.query(
-        'INSERT INTO users (id, email, name, avatar, provider, provider_id, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, email, name, avatar, provider, provider_id, role]
+        'INSERT INTO users (id, email, name, avatar, provider, provider_id, role, is_premium) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, email, name, avatar, provider, provider_id, role, isPremium]
       );
+
       return result;
     } catch (error) {
       console.error('Error creating user:', error);
@@ -57,34 +60,89 @@ export class UserModel {
     }
   }
 
+  static async isUserPremium(userId) {
+    try {
+      const [rows] = await promisePool.query(
+        'SELECT is_premium, role FROM users WHERE id = ?',
+        [userId]
+      );
+      // Return true if user is either premium or super_admin
+      return rows[0]?.role === 'super_admin' || rows[0]?.is_premium || false;
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+      throw error;
+    }
+  }
+
+  static async updatePremiumStatus(userId, isPremium) {
+    try {
+      const [user] = await promisePool.query(
+        'SELECT role FROM users WHERE id = ?',
+        [userId]
+      );
+
+      // If user is super_admin, don't allow changing premium status
+      if (user[0]?.role === 'super_admin') {
+        return true; // Already premium
+      }
+
+      await promisePool.query(
+        'UPDATE users SET is_premium = ? WHERE id = ?',
+        [isPremium, userId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating premium status:', error);
+      throw error;
+    }
+  }
+
   static async addRoleColumn() {
     try {
       // Check if role column exists
       const [columns] = await promisePool.query(`
-        SELECT COLUMN_NAME 
-        FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_NAME = 'users' 
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'users'
         AND COLUMN_NAME = 'role'
       `);
 
       // If role column doesn't exist, add it
       if (columns.length === 0) {
         await promisePool.query(`
-          ALTER TABLE users 
+          ALTER TABLE users
           ADD COLUMN role VARCHAR(20) DEFAULT 'user'
         `);
         console.log('Role column added successfully');
 
-        // Update existing super admin if exists
+        // Update existing super admin if exists and set premium status
         await promisePool.query(`
-          UPDATE users 
-          SET role = 'super_admin' 
+          UPDATE users
+          SET role = 'super_admin', is_premium = true
           WHERE email = 'senku8ypvrgjgy@gmail.com'
         `);
-        console.log('Super admin role updated');
+        console.log('Super admin role and premium status updated');
+      } else {
+        // Ensure all existing super_admin users are premium
+        await this.ensureAdminsPremium();
       }
     } catch (error) {
       console.error('Error adding role column:', error);
+      throw error;
+    }
+  }
+
+  // New method to ensure all admins are premium
+  static async ensureAdminsPremium() {
+    try {
+      await promisePool.query(`
+        UPDATE users
+        SET is_premium = true
+        WHERE role = 'super_admin' AND is_premium = false
+      `);
+      console.log('Updated premium status for all admin users');
+    } catch (error) {
+      console.error('Error ensuring admins are premium:', error);
       throw error;
     }
   }
@@ -102,13 +160,14 @@ export const createUsersTable = async () => {
         provider VARCHAR(50) NOT NULL,
         provider_id VARCHAR(255) NOT NULL,
         role VARCHAR(20) DEFAULT 'user',
+        is_premium BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_provider_id (provider, provider_id)
       )
     `);
     console.log('Users table ready');
-    
+
     // Add role column if it doesn't exist
     await UserModel.addRoleColumn();
   } catch (error) {
@@ -117,4 +176,4 @@ export const createUsersTable = async () => {
   }
 };
 
-export default UserModel; 
+export default UserModel;

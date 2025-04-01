@@ -1,12 +1,14 @@
 import promisePool from '../config/db.config.js';
 import * as createUsersTable from './20240101000000_create_users_table.js';
 import * as createTemplatesTable from './20240101000001_create_templates_table.js';
+import * as addPremiumToUsers from './20240101000003_add_premium_to_users.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const migrations = [
   createUsersTable,
-  createTemplatesTable
+  createTemplatesTable,
+  addPremiumToUsers
 ];
 
 const checkEnvironment = () => {
@@ -35,8 +37,8 @@ export const getMigratedFiles = async () => {
   try {
     // First check if migrations table exists
     const [tables] = await promisePool.query(`
-      SELECT TABLE_NAME 
-      FROM information_schema.tables 
+      SELECT TABLE_NAME
+      FROM information_schema.tables
       WHERE table_schema = '${process.env.DB_NAME}'
       AND table_name = 'migrations'
     `);
@@ -72,12 +74,12 @@ export const runMigrations = async (isFresh = false) => {
       // Drop all tables first
       await promisePool.query('SET FOREIGN_KEY_CHECKS = 0');
       const [tables] = await promisePool.query(`
-        SELECT TABLE_NAME 
-        FROM information_schema.tables 
+        SELECT TABLE_NAME
+        FROM information_schema.tables
         WHERE table_schema = '${process.env.DB_NAME}'
         AND table_type = 'BASE TABLE'
       `);
-      
+
       for (const table of tables) {
         await promisePool.query(`DROP TABLE IF EXISTS \`${table.TABLE_NAME}\``);
         console.log(`Dropped table: ${table.TABLE_NAME}`);
@@ -115,12 +117,12 @@ export const runMigrations = async (isFresh = false) => {
 // Updated addRoleColumn to be more robust
 const addRoleColumn = async () => {
   const migrationName = 'add_role_column';
-  
+
   try {
     const [columns] = await promisePool.query(`
-      SELECT COLUMN_NAME 
-      FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE TABLE_NAME = 'users' 
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'users'
       AND COLUMN_NAME = 'role'
       AND TABLE_SCHEMA = '${process.env.DB_NAME}'
     `);
@@ -128,14 +130,14 @@ const addRoleColumn = async () => {
     if (columns.length === 0) {
       console.log('Adding role column to users table...');
       await promisePool.query(`
-        ALTER TABLE users 
+        ALTER TABLE users
         ADD COLUMN role VARCHAR(20) DEFAULT 'user'
       `);
 
       // Update super admin role
       await promisePool.query(`
-        UPDATE users 
-        SET role = 'super_admin' 
+        UPDATE users
+        SET role = 'super_admin'
         WHERE email = 'senku8ypvrgjgy@gmail.com'
       `);
 
@@ -146,4 +148,4 @@ const addRoleColumn = async () => {
     console.error('Error in role column migration:', error);
     throw error;
   }
-}; 
+};

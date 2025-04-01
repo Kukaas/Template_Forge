@@ -5,7 +5,7 @@ export const name = 'create_templates_table';
 export async function up() {
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS templates (
-      id INT PRIMARY KEY AUTO_INCREMENT,
+      id VARCHAR(36) PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
       description TEXT,
       category VARCHAR(50) NOT NULL,
@@ -16,6 +16,7 @@ export async function up() {
       file_size INT NOT NULL,
       downloads INT DEFAULT 0,
       featured BOOLEAN DEFAULT false,
+      is_premium TINYINT(1) NOT NULL DEFAULT 0,
       created_by VARCHAR(36) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -28,4 +29,4 @@ export async function up() {
 export async function down() {
   await promisePool.query(`DROP TABLE IF EXISTS templates`);
   console.log('Templates table dropped');
-} 
+}
