@@ -32,19 +32,13 @@ const Navbar = () => {
       name: 'Home',
       path: '/',
       icon: HomeIcon,
-      show: true
+      show: !isAuthenticated
     },
     {
       name: 'Templates',
-      path: '/templates',
+      path: isAuthenticated ? '/templates/premium' : '/templates',
       icon: FileText,
       show: true
-    },
-    {
-      name: 'Premium Templates',
-      path: '/templates/premium',
-      icon: FileText,
-      show: isAuthenticated
     },
     {
       name: 'Dashboard',

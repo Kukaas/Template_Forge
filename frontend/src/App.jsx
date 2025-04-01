@@ -8,6 +8,9 @@ import RootLayout from './layouts/RootLayout';
 import { AuthProvider } from './lib/auth';
 import Templates from './pages/Templates';
 import PrivateTemplates from './pages/PrivateTemplates';
+import AcademicTemplates from './pages/AcademicTemplates';
+import ResumeTemplates from './pages/ResumeTemplates';
+import BusinessTemplates from './pages/BusinessTemplates';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +40,30 @@ function App() {
                 element={
                   <PrivateRoute>
                     <PrivateTemplates />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="templates/academic"
+                element={
+                  <PrivateRoute>
+                    <AcademicTemplates />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="templates/resume"
+                element={
+                  <PrivateRoute>
+                    <ResumeTemplates />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="templates/business"
+                element={
+                  <PrivateRoute>
+                    <BusinessTemplates />
                   </PrivateRoute>
                 }
               />

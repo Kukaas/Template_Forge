@@ -1,7 +1,10 @@
 import { CustomButton, CustomBadge } from '../components/custom-components';
 import { FileText, Briefcase, GraduationCap, Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 const PrivateTemplates = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col items-center min-h-[calc(100vh-4rem)] px-4 py-8">
       <div className="space-y-4 max-w-4xl w-full">
@@ -15,7 +18,7 @@ const PrivateTemplates = () => {
             </h1>
           </div>
           <CustomButton variant="gradient">
-            <Plus className="h-4 w-4 mr-2" /> Create Template
+            <Plus className="h-4 w-4 mr-2" /> Create
           </CustomButton>
         </div>
 
@@ -31,7 +34,12 @@ const PrivateTemplates = () => {
               <li className="hover:text-primary cursor-pointer">Assignment Template</li>
               <li className="hover:text-primary cursor-pointer">Literature Review</li>
             </ul>
-            <CustomButton variant="outline" size="sm" className="w-full">
+            <CustomButton 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => navigate('/templates/academic')}
+            >
               View All Academic
             </CustomButton>
           </div>
@@ -47,7 +55,12 @@ const PrivateTemplates = () => {
               <li className="hover:text-primary cursor-pointer">Creative Portfolio</li>
               <li className="hover:text-primary cursor-pointer">Cover Letter</li>
             </ul>
-            <CustomButton variant="outline" size="sm" className="w-full">
+            <CustomButton 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => navigate('/templates/resume')}
+            >
               View All Resume
             </CustomButton>
           </div>
@@ -63,7 +76,12 @@ const PrivateTemplates = () => {
               <li className="hover:text-primary cursor-pointer">Financial Report</li>
               <li className="hover:text-primary cursor-pointer">SWOT Analysis</li>
             </ul>
-            <CustomButton variant="outline" size="sm" className="w-full">
+            <CustomButton 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => navigate('/templates/business')}
+            >
               View All Business
             </CustomButton>
           </div>

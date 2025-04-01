@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export const CustomCard = ({ 
+const CustomCard = ({ 
   className, 
   children, 
   hover = false,
@@ -19,6 +19,8 @@ export const CustomCard = ({
     </div>
   );
 };
+
+export default CustomCard;
 
 export const CustomCardHeader = ({
   className,
