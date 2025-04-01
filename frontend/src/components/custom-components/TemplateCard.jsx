@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import CustomButton from './CustomButton';
 import { FileText, Download, Star, Edit, Trash2, Eye, X, Lock } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { usePremium } from '../../hooks/usePremium';
@@ -11,6 +11,14 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
   const isAdminSection = location.pathname.startsWith('/admin');
   const [showPreview, setShowPreview] = useState(false);
   const { hasAccess } = usePremium();
+  const navigate = useNavigate();
+
+  // Add this debug log
+  console.log({
+    isPremiumTemplate: template.is_premium,
+    hasAccess: hasAccess(template),
+    template: template
+  });
 
   const handleDownload = async () => {
     if (!hasAccess(template)) {
@@ -79,6 +87,10 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
       console.error('Error loading preview:', error);
       toast.error('Failed to load preview');
     }
+  };
+
+  const handleUpgrade = () => {
+    navigate('/pricing');
   };
 
   return (
@@ -154,16 +166,27 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
               <Eye className="h-4 w-4 sm:mr-2" />
               <span>Preview</span>
             </CustomButton>
-            <CustomButton
-              variant="default"
-              size="sm"
-              onClick={handleDownload}
-              className="w-full bg-primary hover:bg-primary/90 transition-colors"
-              disabled={!hasAccess(template)}
-            >
-              <Download className="h-4 w-4 sm:mr-2" />
-              <span>Download</span>
-            </CustomButton>
+            {template.is_premium && !hasAccess(template) ? (
+              <CustomButton
+                variant="gradient"
+                size="sm"
+                onClick={handleUpgrade}
+                className="w-full"
+              >
+                <Lock className="h-4 w-4 sm:mr-2" />
+                <span>Premium</span>
+              </CustomButton>
+            ) : (
+              <CustomButton
+                variant="default"
+                size="sm"
+                onClick={handleDownload}
+                className="w-full bg-primary hover:bg-primary/90 transition-colors"
+              >
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span>Download</span>
+              </CustomButton>
+            )}
           </div>
         </div>
       </div>
@@ -187,7 +210,7 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
 
             {/* Preview Content */}
             <div className="flex-1 overflow-hidden bg-muted/5 relative">
-              {template.is_premium && (
+              {template.is_premium && !hasAccess(template) && (
                 <div className="absolute inset-0 z-10 pointer-events-none">
                   <div
                     className="w-full h-full"
@@ -203,7 +226,7 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
               )}
               <iframe
                 src={`${import.meta.env.VITE_API_URL}/api/templates/${template.id}/preview`}
-                className={`w-full h-full border-0 ${template.is_premium ? 'pointer-events-none' : ''}`}
+                className={`w-full h-full border-0 ${template.is_premium && !hasAccess(template) ? 'pointer-events-none' : ''}`}
                 title={`Preview of ${template.title}`}
               />
             </div>
@@ -226,16 +249,27 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
                   </div>
                 )}
               </div>
-              <CustomButton
-                variant="default"
-                size="sm"
-                onClick={handleDownload}
-                className="w-full sm:w-auto bg-primary hover:bg-primary/90 transition-colors"
-                disabled={!hasAccess(template)}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                <span>{template.is_premium ? 'Upgrade to Download' : 'Download Template'}</span>
-              </CustomButton>
+              {template.is_premium && !hasAccess(template) ? (
+                <CustomButton
+                  variant="gradient"
+                  size="sm"
+                  onClick={handleUpgrade}
+                  className="w-full sm:w-auto"
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  <span>Upgrade to Premium</span>
+                </CustomButton>
+              ) : (
+                <CustomButton
+                  variant="default"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90 transition-colors"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  <span>Download Template</span>
+                </CustomButton>
+              )}
             </div>
           </div>
         </DialogContent>

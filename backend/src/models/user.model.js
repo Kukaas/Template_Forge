@@ -1,4 +1,5 @@
 import promisePool from '../config/db.config.js';
+import { v4 as uuidv4 } from 'uuid';
 
 export class UserModel {
   static async findById(id) {
@@ -63,11 +64,20 @@ export class UserModel {
   static async isUserPremium(userId) {
     try {
       const [rows] = await promisePool.query(
-        'SELECT is_premium, role FROM users WHERE id = ?',
+        `SELECT u.is_premium, u.role,
+         EXISTS(
+           SELECT 1 FROM subscriptions s
+           WHERE s.user_id = u.id
+           AND s.status = 'active'
+           AND s.end_date > NOW()
+         ) as has_active_subscription
+         FROM users u
+         WHERE u.id = ?`,
         [userId]
       );
-      // Return true if user is either premium or super_admin
-      return rows[0]?.role === 'super_admin' || rows[0]?.is_premium || false;
+
+      // Return true if user is either super_admin or has an active subscription
+      return rows[0]?.role === 'super_admin' || rows[0]?.has_active_subscription || false;
     } catch (error) {
       console.error('Error checking premium status:', error);
       throw error;
@@ -145,6 +155,219 @@ export class UserModel {
       console.error('Error ensuring admins are premium:', error);
       throw error;
     }
+  }
+
+  static SUBSCRIPTION_PLANS = {
+    monthly: {
+      duration: 30, // days
+      price: 3.99,
+      savings: 0, // no savings for monthly
+      description: 'Monthly Premium Access'
+    },
+    biannual: {
+      duration: 180, // days (6 months)
+      price: 19.99, // Instead of 23.94 (3.99 x 6)
+      savings: 16.5, // About 16.5% savings
+      description: '6 Months Premium Access'
+    },
+    yearly: {
+      duration: 365, // days
+      price: 35.99, // Instead of 47.88 (3.99 x 12)
+      savings: 25, // 25% savings
+      description: '12 Months Premium Access'
+    }
+  };
+
+  static async createSubscription(userId, planType, paymentId) {
+    try {
+      // Validate plan type
+      if (!this.SUBSCRIPTION_PLANS[planType]) {
+        throw new Error('Invalid subscription plan');
+      }
+
+      // Calculate end date based on plan duration
+      const plan = this.SUBSCRIPTION_PLANS[planType];
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + plan.duration);
+
+      // Begin transaction
+      const connection = await promisePool.getConnection();
+      await connection.beginTransaction();
+
+      try {
+        // Create subscription record
+        const subscriptionId = uuidv4();
+        await connection.query(
+          `INSERT INTO subscriptions (
+            id, user_id, plan_type, amount, start_date, end_date, payment_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            subscriptionId,
+            userId,
+            planType,
+            plan.price,
+            startDate,
+            endDate,
+            paymentId
+          ]
+        );
+
+        // Update user's premium status
+        await connection.query(
+          'UPDATE users SET is_premium = true WHERE id = ?',
+          [userId]
+        );
+
+        await connection.commit();
+        return {
+          subscriptionId,
+          planType,
+          amount: plan.price,
+          startDate,
+          endDate
+        };
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      throw error;
+    }
+  }
+
+  static async getCurrentSubscription(userId) {
+    try {
+      const [rows] = await promisePool.query(
+        `SELECT * FROM subscriptions
+         WHERE user_id = ?
+         AND status = 'active'
+         AND end_date > NOW()
+         ORDER BY end_date DESC
+         LIMIT 1`,
+        [userId]
+      );
+      return rows[0];
+    } catch (error) {
+      console.error('Error getting current subscription:', error);
+      throw error;
+    }
+  }
+
+  static async cancelSubscription(userId) {
+    try {
+      const connection = await promisePool.getConnection();
+      await connection.beginTransaction();
+
+      try {
+        // Update subscription status
+        await connection.query(
+          `UPDATE subscriptions
+           SET status = 'cancelled'
+           WHERE user_id = ? AND status = 'active'`,
+          [userId]
+        );
+
+        // Remove premium status
+        await connection.query(
+          'UPDATE users SET is_premium = false WHERE id = ?',
+          [userId]
+        );
+
+        await connection.commit();
+        return true;
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      throw error;
+    }
+  }
+
+  // Add method to check subscription status
+  static async getSubscriptionStatus(userId) {
+    try {
+      const [subscription] = await promisePool.query(
+        `SELECT
+          plan_type,
+          amount,
+          start_date,
+          end_date,
+          status,
+          DATEDIFF(end_date, NOW()) as days_remaining
+         FROM subscriptions
+         WHERE user_id = ?
+         AND status = 'active'
+         AND end_date > NOW()
+         ORDER BY end_date DESC
+         LIMIT 1`,
+        [userId]
+      );
+
+      if (!subscription[0]) {
+        return {
+          isSubscribed: false,
+          subscription: null
+        };
+      }
+
+      return {
+        isSubscribed: true,
+        subscription: subscription[0]
+      };
+    } catch (error) {
+      console.error('Error getting subscription status:', error);
+      throw error;
+    }
+  }
+
+  // Add a method to get plan details with savings information
+  static async getSubscriptionPlans() {
+    return {
+      plans: Object.entries(this.SUBSCRIPTION_PLANS).map(([key, plan]) => ({
+        id: key,
+        type: key,
+        price: plan.price,
+        duration: plan.duration,
+        description: plan.description,
+        savings: plan.savings,
+        pricePerMonth: Number((plan.price / (plan.duration / 30)).toFixed(2)),
+        features: [
+          'Access to all premium templates',
+          'Priority support',
+          'Ad-free experience',
+          'Unlimited downloads'
+        ]
+      })),
+      recommended: 'yearly' // Mark the best value plan
+    };
+  }
+
+  static getFormattedPlanDetails(planType) {
+    const plan = this.SUBSCRIPTION_PLANS[planType];
+    if (!plan) return null;
+
+    const monthlyEquivalent = Number((plan.price / (plan.duration / 30)).toFixed(2));
+    const regularPrice = 3.99 * (plan.duration / 30); // Calculate non-discounted price
+    const totalSavings = Number((regularPrice - plan.price).toFixed(2));
+
+    return {
+      ...plan,
+      monthlyEquivalent,
+      regularPrice,
+      totalSavings,
+      formattedPrice: `$${plan.price.toFixed(2)}`,
+      formattedMonthly: `$${monthlyEquivalent.toFixed(2)}/mo`,
+      savingsAmount: `$${totalSavings.toFixed(2)}`,
+      savingsPercentage: `${plan.savings}%`
+    };
   }
 }
 

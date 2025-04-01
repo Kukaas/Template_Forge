@@ -16,7 +16,7 @@ export const up = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_provider_id (provider, provider_id)
-      )
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `;
 
     await promisePool.query(createUsersTable);
@@ -35,4 +35,4 @@ export const down = async () => {
     console.error('Migration rollback failed:', error);
     throw error;
   }
-}; 
+};

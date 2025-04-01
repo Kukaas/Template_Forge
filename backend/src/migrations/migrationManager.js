@@ -2,13 +2,15 @@ import promisePool from '../config/db.config.js';
 import * as createUsersTable from './20240101000000_create_users_table.js';
 import * as createTemplatesTable from './20240101000001_create_templates_table.js';
 import * as addPremiumToUsers from './20240101000003_add_premium_to_users.js';
+import * as createSubscriptionsTable from './20240101000004_create_subscriptions_table.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const migrations = [
   createUsersTable,
+  addPremiumToUsers,
   createTemplatesTable,
-  addPremiumToUsers
+  createSubscriptionsTable
 ];
 
 const checkEnvironment = () => {
@@ -64,14 +66,12 @@ export const recordMigration = async (migrationName) => {
   }
 };
 
-// Updated runMigrations to handle fresh option properly
 export const runMigrations = async (isFresh = false) => {
   try {
     checkEnvironment();
 
     if (isFresh) {
       console.log('Dropping all tables...');
-      // Drop all tables first
       await promisePool.query('SET FOREIGN_KEY_CHECKS = 0');
       const [tables] = await promisePool.query(`
         SELECT TABLE_NAME
@@ -87,10 +87,7 @@ export const runMigrations = async (isFresh = false) => {
       await promisePool.query('SET FOREIGN_KEY_CHECKS = 1');
     }
 
-    // Create migrations table
     await createMigrationsTable();
-
-    // Get list of already executed migrations
     const migratedFiles = await getMigratedFiles();
 
     // Run pending migrations
@@ -104,48 +101,16 @@ export const runMigrations = async (isFresh = false) => {
       }
     }
 
-    // Add role column migration
-    await addRoleColumn();
+    // Update super admin after all migrations
+    await promisePool.query(`
+      UPDATE users
+      SET role = 'super_admin', is_premium = true
+      WHERE email = 'senku8ypvrgjgy@gmail.com'
+    `);
 
     console.log('All migrations completed successfully');
   } catch (error) {
     console.error('Migration failed:', error);
-    throw error;
-  }
-};
-
-// Updated addRoleColumn to be more robust
-const addRoleColumn = async () => {
-  const migrationName = 'add_role_column';
-
-  try {
-    const [columns] = await promisePool.query(`
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_NAME = 'users'
-      AND COLUMN_NAME = 'role'
-      AND TABLE_SCHEMA = '${process.env.DB_NAME}'
-    `);
-
-    if (columns.length === 0) {
-      console.log('Adding role column to users table...');
-      await promisePool.query(`
-        ALTER TABLE users
-        ADD COLUMN role VARCHAR(20) DEFAULT 'user'
-      `);
-
-      // Update super admin role
-      await promisePool.query(`
-        UPDATE users
-        SET role = 'super_admin'
-        WHERE email = 'senku8ypvrgjgy@gmail.com'
-      `);
-
-      await recordMigration(migrationName);
-      console.log('Added role column and updated super admin');
-    }
-  } catch (error) {
-    console.error('Error in role column migration:', error);
     throw error;
   }
 };

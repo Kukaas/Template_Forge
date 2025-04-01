@@ -8,6 +8,7 @@ import promisePool from './config/db.config.js';
 import authRoutes from './routes/auth.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import templateRoutes from './routes/template.routes.js';
+import paymentRoutes from './routes/payment.routes.js';
 import initializePassport from './config/passport.config.js';
 import { handleAuthCallback, serializeUser, deserializeUser } from './controllers/auth.controller.js';
 
@@ -53,6 +54,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
@@ -80,4 +82,4 @@ const initializeApp = async () => {
 
 initializeApp();
 
-export default app; 
+export default app;

@@ -20,8 +20,12 @@ export async function up() {
       created_by VARCHAR(36) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
-    )
+      INDEX idx_created_by (created_by),
+      CONSTRAINT fk_template_user
+        FOREIGN KEY (created_by)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   console.log('Templates table migration completed');
 }

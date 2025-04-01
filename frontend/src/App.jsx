@@ -13,6 +13,7 @@ import ResumeTemplates from './pages/ResumeTemplates';
 import BusinessTemplates from './pages/BusinessTemplates';
 import SuperAdmin from './pages/admin/SuperAdmin';
 import ManageTemplates from './pages/admin/ManageTemplates';
+import Pricing from './pages/Pricing';
 
 const queryClient = new QueryClient();
 
@@ -27,7 +28,7 @@ function App() {
               <Route index element={<Home />} />
               <Route path="login" element={<Login />} />
               <Route path="templates" element={<Templates />} />
-              
+
               {/* Private Routes */}
               <Route
                 path="dashboard"
@@ -69,7 +70,7 @@ function App() {
                   </PrivateRoute>
                 }
               />
-              
+
               {/* Super Admin Routes */}
               <Route
                 path="admin"
@@ -87,6 +88,9 @@ function App() {
                   </PrivateRoute>
                 }
               />
+
+              {/* Add Pricing Route */}
+              <Route path="pricing" element={<Pricing />} />
             </Route>
           </Routes>
         </AuthProvider>
