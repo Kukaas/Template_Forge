@@ -11,6 +11,7 @@ import PrivateTemplates from './pages/PrivateTemplates';
 import AcademicTemplates from './pages/AcademicTemplates';
 import ResumeTemplates from './pages/ResumeTemplates';
 import BusinessTemplates from './pages/BusinessTemplates';
+import SuperAdmin from './pages/admin/SuperAdmin';
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,16 @@ function App() {
                 element={
                   <PrivateRoute>
                     <BusinessTemplates />
+                  </PrivateRoute>
+                }
+              />
+              
+              {/* Super Admin Route */}
+              <Route
+                path="admin"
+                element={
+                  <PrivateRoute>
+                    <SuperAdmin />
                   </PrivateRoute>
                 }
               />

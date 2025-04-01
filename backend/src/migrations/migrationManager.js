@@ -22,6 +22,7 @@ export const createMigrationsTable = async () => {
         executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('Migrations table created/verified');
   } catch (error) {
     console.error('Failed to create migrations table:', error);
     throw error;
@@ -30,11 +31,23 @@ export const createMigrationsTable = async () => {
 
 export const getMigratedFiles = async () => {
   try {
+    // First check if migrations table exists
+    const [tables] = await promisePool.query(`
+      SELECT TABLE_NAME 
+      FROM information_schema.tables 
+      WHERE table_schema = '${process.env.DB_NAME}'
+      AND table_name = 'migrations'
+    `);
+
+    if (tables.length === 0) {
+      return []; // Return empty array if migrations table doesn't exist
+    }
+
     const [rows] = await promisePool.query('SELECT name FROM migrations');
     return rows.map(row => row.name);
   } catch (error) {
     console.error('Failed to get migrated files:', error);
-    throw error;
+    return []; // Return empty array on error
   }
 };
 
@@ -47,63 +60,36 @@ export const recordMigration = async (migrationName) => {
   }
 };
 
-// New function to truncate all tables
-export const truncateAllTables = async () => {
-  try {
-    // Disable foreign key checks temporarily
-    await promisePool.query('SET FOREIGN_KEY_CHECKS = 0');
-    
-    // Get all tables except migrations table
-    const [tables] = await promisePool.query(`
-      SELECT TABLE_NAME 
-      FROM information_schema.tables 
-      WHERE table_schema = '${process.env.DB_NAME}'
-      AND table_name != 'migrations'
-      AND table_type = 'BASE TABLE'
-    `);
-    
-    // Truncate each table
-    for (const table of tables) {
-      const tableName = table.TABLE_NAME;
-      if (tableName) {
-        await promisePool.query(`TRUNCATE TABLE \`${tableName}\``);
-        console.log(`Truncated table: ${tableName}`);
-      }
-    }
-    
-    // Re-enable foreign key checks
-    await promisePool.query('SET FOREIGN_KEY_CHECKS = 1');
-  } catch (error) {
-    console.error('Failed to truncate tables:', error);
-    throw error;
-  }
-};
-
-// New function to reset migrations
-export const resetMigrations = async () => {
-  try {
-    await promisePool.query('TRUNCATE TABLE migrations');
-    console.log('Reset migrations table');
-  } catch (error) {
-    console.error('Failed to reset migrations:', error);
-    throw error;
-  }
-};
-
-// Updated runMigrations to handle fresh option
-export const runMigrations = async (fresh = false) => {
+// Updated runMigrations to handle fresh option properly
+export const runMigrations = async (isFresh = false) => {
   try {
     checkEnvironment();
-    await createMigrationsTable();
-    
-    if (fresh) {
-      console.log('Running fresh migration - clearing all data...');
-      await truncateAllTables();
-      await resetMigrations();
+
+    if (isFresh) {
+      console.log('Dropping all tables...');
+      // Drop all tables first
+      await promisePool.query('SET FOREIGN_KEY_CHECKS = 0');
+      const [tables] = await promisePool.query(`
+        SELECT TABLE_NAME 
+        FROM information_schema.tables 
+        WHERE table_schema = '${process.env.DB_NAME}'
+        AND table_type = 'BASE TABLE'
+      `);
+      
+      for (const table of tables) {
+        await promisePool.query(`DROP TABLE IF EXISTS \`${table.TABLE_NAME}\``);
+        console.log(`Dropped table: ${table.TABLE_NAME}`);
+      }
+      await promisePool.query('SET FOREIGN_KEY_CHECKS = 1');
     }
 
+    // Create migrations table
+    await createMigrationsTable();
+
+    // Get list of already executed migrations
     const migratedFiles = await getMigratedFiles();
 
+    // Run pending migrations
     for (const migration of migrations) {
       const migrationName = migration.name || 'unknown';
       if (!migratedFiles.includes(migrationName)) {
@@ -114,9 +100,48 @@ export const runMigrations = async (fresh = false) => {
       }
     }
 
+    // Add role column migration
+    await addRoleColumn();
+
     console.log('All migrations completed successfully');
   } catch (error) {
     console.error('Migration failed:', error);
+    throw error;
+  }
+};
+
+// Updated addRoleColumn to be more robust
+const addRoleColumn = async () => {
+  const migrationName = 'add_role_column';
+  
+  try {
+    const [columns] = await promisePool.query(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'users' 
+      AND COLUMN_NAME = 'role'
+      AND TABLE_SCHEMA = '${process.env.DB_NAME}'
+    `);
+
+    if (columns.length === 0) {
+      console.log('Adding role column to users table...');
+      await promisePool.query(`
+        ALTER TABLE users 
+        ADD COLUMN role VARCHAR(20) DEFAULT 'user'
+      `);
+
+      // Update super admin role
+      await promisePool.query(`
+        UPDATE users 
+        SET role = 'super_admin' 
+        WHERE email = 'senku8ypvrgjgy@gmail.com'
+      `);
+
+      await recordMigration(migrationName);
+      console.log('Added role column and updated super admin');
+    }
+  } catch (error) {
+    console.error('Error in role column migration:', error);
     throw error;
   }
 }; 

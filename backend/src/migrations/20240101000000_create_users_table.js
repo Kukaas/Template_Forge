@@ -1,5 +1,7 @@
 import promisePool from '../config/db.config.js';
 
+export const name = 'create_users_table';
+
 export const up = async () => {
   try {
     const createUsersTable = `
@@ -10,6 +12,7 @@ export const up = async () => {
         avatar VARCHAR(255),
         provider VARCHAR(50) NOT NULL,
         provider_id VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'user',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_provider_id (provider, provider_id)

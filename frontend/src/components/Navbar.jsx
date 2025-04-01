@@ -7,7 +7,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { Menu, LogOut, Home as HomeIcon, LayoutDashboard, ChevronRight, FileText } from 'lucide-react'
+import { Menu, LogOut, Home as HomeIcon, LayoutDashboard, ChevronRight, FileText, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils';
 
 const Navbar = () => {
@@ -28,6 +28,7 @@ const Navbar = () => {
   };
 
   const navigationItems = [
+    // Public navigation
     {
       name: 'Home',
       path: '/',
@@ -36,15 +37,43 @@ const Navbar = () => {
     },
     {
       name: 'Templates',
-      path: isAuthenticated ? '/templates/premium' : '/templates',
+      path: '/templates',
       icon: FileText,
-      show: true
+      show: !isAuthenticated
+    },
+
+    // Regular user navigation
+    {
+      name: 'Templates',
+      path: '/templates/premium',
+      icon: FileText,
+      show: isAuthenticated && user?.role !== 'super_admin'
     },
     {
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
-      show: isAuthenticated
+      show: isAuthenticated && user?.role !== 'super_admin'
+    },
+
+    // Admin navigation
+    {
+      name: 'Admin Dashboard',
+      path: '/admin',
+      icon: Shield,
+      show: isAuthenticated && user?.role === 'super_admin'
+    },
+    {
+      name: 'Manage Templates',
+      path: '/admin/templates',
+      icon: FileText,
+      show: isAuthenticated && user?.role === 'super_admin'
+    },
+    {
+      name: 'User Management',
+      path: '/admin/users',
+      icon: LayoutDashboard,
+      show: isAuthenticated && user?.role === 'super_admin'
     }
   ];
 

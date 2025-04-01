@@ -6,6 +6,8 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const navigate = useNavigate();
 
   const checkAuthStatus = async () => {
@@ -13,10 +15,12 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login/success`, {
         credentials: 'include'
       });
-      const data = await response.json();
       
-      if (data.success) {
+      if (response.ok) {
+        const data = await response.json();
+        setIsAuthenticated(true);
         setUser(data.user);
+        setIsSuperAdmin(data.user.role === 'super_admin');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -45,7 +49,7 @@ export const AuthProvider = ({ children }) => {
   }, [navigate]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated, isSuperAdmin }}>
       {children}
     </AuthContext.Provider>
   );

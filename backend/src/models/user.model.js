@@ -30,9 +30,12 @@ export class UserModel {
   static async create(userData) {
     try {
       const { id, email, name, avatar, provider, provider_id } = userData;
+      // Check if this is the super admin email
+      const role = email === 'senku8ypvrgjgy@gmail.com' ? 'super_admin' : 'user';
+      
       const [result] = await promisePool.query(
-        'INSERT INTO users (id, email, name, avatar, provider, provider_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, email, name, avatar, provider, provider_id]
+        'INSERT INTO users (id, email, name, avatar, provider, provider_id, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [id, email, name, avatar, provider, provider_id, role]
       );
       return result;
     } catch (error) {
@@ -40,9 +43,54 @@ export class UserModel {
       throw error;
     }
   }
+
+  static async isUserSuperAdmin(userId) {
+    try {
+      const [rows] = await promisePool.query(
+        'SELECT role FROM users WHERE id = ? AND role = ?',
+        [userId, 'super_admin']
+      );
+      return rows.length > 0;
+    } catch (error) {
+      console.error('Error checking super admin status:', error);
+      throw error;
+    }
+  }
+
+  static async addRoleColumn() {
+    try {
+      // Check if role column exists
+      const [columns] = await promisePool.query(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_NAME = 'users' 
+        AND COLUMN_NAME = 'role'
+      `);
+
+      // If role column doesn't exist, add it
+      if (columns.length === 0) {
+        await promisePool.query(`
+          ALTER TABLE users 
+          ADD COLUMN role VARCHAR(20) DEFAULT 'user'
+        `);
+        console.log('Role column added successfully');
+
+        // Update existing super admin if exists
+        await promisePool.query(`
+          UPDATE users 
+          SET role = 'super_admin' 
+          WHERE email = 'senku8ypvrgjgy@gmail.com'
+        `);
+        console.log('Super admin role updated');
+      }
+    } catch (error) {
+      console.error('Error adding role column:', error);
+      throw error;
+    }
+  }
 }
 
-// Create users table if it doesn't exist
+// Modify the createUsersTable function
 export const createUsersTable = async () => {
   try {
     await promisePool.query(`
@@ -53,12 +101,16 @@ export const createUsersTable = async () => {
         avatar VARCHAR(255),
         provider VARCHAR(50) NOT NULL,
         provider_id VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'user',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_provider_id (provider, provider_id)
       )
     `);
     console.log('Users table ready');
+    
+    // Add role column if it doesn't exist
+    await UserModel.addRoleColumn();
   } catch (error) {
     console.error('Error creating users table:', error);
     throw error;
