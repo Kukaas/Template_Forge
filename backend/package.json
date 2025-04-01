@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "migrate": "node src/commands/migrate.js"
+    "migrate": "node src/scripts/migrate.js",
+    "migrate:fresh": "node src/scripts/migrate.js --fresh"
   },
   "keywords": [],
   "author": "Chester Luke Maligaso",

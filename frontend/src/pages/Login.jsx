@@ -1,6 +1,7 @@
 import { useAuth } from '../lib/auth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Github, Mail } from "lucide-react";
+import { useEffect } from 'react';
 import { 
   CustomCard, 
   CustomCardHeader, 
@@ -13,7 +14,24 @@ import {
 } from '../components/custom-components';
 
 const Login = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, refreshUser } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Add message listener for auth events
+    const handleMessage = async (event) => {
+      // Verify the origin matches your API URL
+      if (event.origin === import.meta.env.VITE_API_URL) {
+        if (event.data.type === 'AUTH_SUCCESS') {
+          await refreshUser();
+          navigate('/dashboard');
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate, refreshUser]);
 
   const handleGoogleLogin = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -42,16 +60,41 @@ const Login = () => {
   };
 
   const handleGithubLogin = () => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (!apiUrl) {
+      console.error('API URL is not defined in environment variables');
+      return;
+    }
+
+    // Clear any existing GitHub OAuth state from localStorage
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('github-oauth-state')) {
+        localStorage.removeItem(key);
+      }
+    });
+
     const width = 500;
     const height = 600;
     const left = (window.screen.width / 2) - (width / 2);
     const top = (window.screen.height / 2) - (height / 2);
 
-    window.open(
-      `${import.meta.env.VITE_API_URL}/api/auth/github`,
+    // Generate a new state
+    const state = `github-oauth-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    localStorage.setItem('github-oauth-state', state);
+    
+    const popup = window.open(
+      `${apiUrl}/api/auth/github?state=${state}&prompt=consent`,
       'GitHub Auth',
       `width=${width},height=${height},left=${left},top=${top}`
     );
+
+    // Check if popup is closed
+    const checkPopup = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopup);
+        localStorage.removeItem('github-oauth-state');
+      }
+    }, 1000);
   };
 
   if (isLoading) {

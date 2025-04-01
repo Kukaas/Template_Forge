@@ -25,14 +25,31 @@ export const loginFailed = (req, res) => {
 };
 
 export const logout = (req, res) => {
+  // Get the user's provider before logging out
+  const provider = req.user?.provider;
+  const accessToken = req.user?.accessToken;
+
   req.logout((err) => {
     if (err) {
       return res.status(500).json({ success: false, message: "Error logging out" });
     }
+    
     req.session.destroy((err) => {
       if (err) {
         console.error('Session destruction error:', err);
       }
+
+      // If it was a GitHub login, revoke the token
+      if (provider === 'github' && accessToken) {
+        fetch('https://api.github.com/applications/${process.env.GITHUB_CLIENT_ID}/token', {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${Buffer.from(`${process.env.GITHUB_CLIENT_ID}:${process.env.GITHUB_CLIENT_SECRET}`).toString('base64')}`,
+          },
+          body: JSON.stringify({ access_token: accessToken })
+        }).catch(error => console.error('Error revoking GitHub token:', error));
+      }
+
       res.redirect(process.env.CLIENT_URL);
     });
   });
@@ -74,17 +91,39 @@ export const googleCallback = (req, res, next) => {
 };
 
 export const githubAuth = passport.authenticate('github', { 
-  scope: ['user:email'] 
+  scope: ['user:email'],
+  prompt: 'consent',
+  access_type: 'offline',
+  response_type: 'code',
+  approval_prompt: 'force'
 });
 
 export const githubCallback = (req, res, next) => {
   passport.authenticate('github', (err, user, info) => {
-    if (err) return next(err);
-    if (!user) return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
+    if (err) {
+      console.error('Authentication error:', err);
+      return next(err);
+    }
+    
+    if (!user) {
+      console.log('Authentication failed: No user');
+      return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
+    }
     
     req.logIn(user, (err) => {
-      if (err) return next(err);
-      return res.redirect(`${process.env.CLIENT_URL}/dashboard`);
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
+      }
+      console.log('User logged in successfully');
+      
+      // Send success message and close popup
+      res.send(`
+        <script>
+          window.opener.postMessage({ type: 'AUTH_SUCCESS' }, '${process.env.CLIENT_URL}');
+          window.close();
+        </script>
+      `);
     });
   })(req, res, next);
 };
@@ -94,11 +133,25 @@ export const handleAuthCallback = async (provider, profile) => {
     let user = await UserModel.findByProviderId(provider, profile.id);
 
     if (!user) {
+      // Handle email differently for GitHub and Google
+      let email;
+      if (provider === 'github') {
+        // GitHub might not provide email in the same structure
+        email = profile.emails ? profile.emails[0].value : profile._json.email;
+      } else {
+        // Google email handling
+        email = profile.emails[0].value;
+      }
+
+      if (!email) {
+        throw new Error('No email provided from OAuth provider');
+      }
+
       const userData = {
         id: uuidv4(),
-        email: profile.emails[0].value,
-        name: profile.displayName || profile.username,
-        avatar: profile.photos?.[0]?.value || null,
+        email: email,
+        name: profile.displayName || profile.username || profile._json.name,
+        avatar: profile.photos?.[0]?.value || profile._json.avatar_url || null,
         provider: provider,
         provider_id: profile.id
       };
