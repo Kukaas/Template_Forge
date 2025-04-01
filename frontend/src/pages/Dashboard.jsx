@@ -5,7 +5,7 @@ import {
   CustomCardDescription, 
   CustomCardContent,
   CustomBadge,
-  CustomTooltip
+  CustomButton
 } from '../components/custom-components';
 import { 
   Plus, 
@@ -22,11 +22,9 @@ const Dashboard = () => {
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">Welcome to your personalized dashboard.</p>
         </div>
-        <CustomTooltip text="Create new template">
-          <CustomBadge variant="default" size="lg" className="cursor-pointer">
-            <Plus className="h-4 w-4 mr-1" /> New Template
-          </CustomBadge>
-        </CustomTooltip>
+         <CustomButton variant="gradient" size="lg" className="cursor-pointer">
+          <Plus className="h-4 w-4 mr-1" /> New Template
+         </CustomButton>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

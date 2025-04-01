@@ -6,7 +6,7 @@ const Home = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] text-center px-4">
       <div className="space-y-4 max-w-4xl">
-        <CustomBadge variant="secondary" size="lg" className="mb-4">
+        <CustomBadge variant="primary" size="lg" className="mb-4">
           ✨ The Future of Template Management
         </CustomBadge>
         

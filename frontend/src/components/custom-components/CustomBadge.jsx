@@ -7,11 +7,11 @@ const CustomBadge = ({
   children 
 }) => {
   const variants = {
-    default: "bg-primary/10 text-primary hover:bg-primary/20",
-    secondary: "bg-secondary/10 text-secondary hover:bg-secondary/20",
-    success: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100",
-    warning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100",
-    danger: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100",
+    default: "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-foreground",
+    secondary: "bg-secondary/20 text-secondary-foreground hover:bg-secondary/30 dark:bg-secondary/30 dark:text-secondary-foreground",
+    success: "bg-green-100 text-green-800 dark:bg-green-400/20 dark:text-green-400",
+    warning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-400/20 dark:text-yellow-400",
+    danger: "bg-red-100 text-red-800 dark:bg-red-400/20 dark:text-red-400",
   };
 
   const sizes = {
