@@ -3,6 +3,7 @@ import * as createUsersTable from './20240101000000_create_users_table.js';
 import * as createTemplatesTable from './20240101000001_create_templates_table.js';
 import * as addPremiumToUsers from './20240101000003_add_premium_to_users.js';
 import * as createSubscriptionsTable from './20240101000004_create_subscriptions_table.js';
+import * as createSavedTemplatesTable from './20240101000005_create_saved_templates_table.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -10,7 +11,8 @@ const migrations = [
   createUsersTable,
   addPremiumToUsers,
   createTemplatesTable,
-  createSubscriptionsTable
+  createSubscriptionsTable,
+  createSavedTemplatesTable
 ];
 
 const checkEnvironment = () => {
@@ -92,12 +94,16 @@ export const runMigrations = async (isFresh = false) => {
 
     // Run pending migrations
     for (const migration of migrations) {
-      const migrationName = migration.name || 'unknown';
-      if (!migratedFiles.includes(migrationName)) {
-        console.log(`Running migration: ${migrationName}`);
+      if (!migration.name) {
+        console.warn('Migration name not found, skipping...');
+        continue;
+      }
+
+      if (!migratedFiles.includes(migration.name)) {
+        console.log(`Running migration: ${migration.name}`);
         await migration.up();
-        await recordMigration(migrationName);
-        console.log(`Completed migration: ${migrationName}`);
+        await recordMigration(migration.name);
+        console.log(`Completed migration: ${migration.name}`);
       }
     }
 

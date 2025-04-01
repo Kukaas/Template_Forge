@@ -1,33 +1,83 @@
-import { 
-  CustomCard, 
-  CustomCardHeader, 
-  CustomCardTitle, 
-  CustomCardDescription, 
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  CustomCard,
+  CustomCardHeader,
+  CustomCardTitle,
+  CustomCardDescription,
   CustomCardContent,
   CustomBadge,
-  CustomButton
+  CustomButton,
+  TemplateCard
 } from '../components/custom-components';
-import { 
-  Plus, 
+import {
+  Plus,
   FileText,
-  Settings, 
-  Clock 
+  Settings,
+  Clock,
+  Bookmark
 } from 'lucide-react';
 
 const Dashboard = () => {
-    return (
+  const [savedTemplates, setSavedTemplates] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const fetchSavedTemplates = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/templates/saved`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch saved templates');
+      }
+      const data = await response.json();
+      setSavedTemplates(data.data || []);
+    } catch (error) {
+      console.error('Error fetching saved templates:', error);
+      setSavedTemplates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSavedTemplates();
+  }, []);
+
+  return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-      <div>
+        <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">Welcome to your personalized dashboard.</p>
         </div>
-         <CustomButton variant="gradient" size="lg" className="cursor-pointer">
-          <Plus className="h-4 w-4 mr-1" /> New Template
-         </CustomButton>
+        <CustomButton
+          variant="gradient"
+          size="lg"
+          onClick={() => navigate('/templates')}
+          className="cursor-pointer"
+        >
+          <Plus className="h-4 w-4 mr-1" /> Browse Templates
+        </CustomButton>
       </div>
-      
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <CustomCard hover onClick={() => navigate('/templates/saved')} className="cursor-pointer">
+          <CustomCardHeader>
+            <Bookmark className="h-8 w-8 text-primary mb-2" />
+            <CustomCardTitle>Saved Templates</CustomCardTitle>
+            <CustomCardDescription>Your saved templates</CustomCardDescription>
+          </CustomCardHeader>
+          <CustomCardContent>
+            <div className="flex justify-between items-center">
+              <span className="text-2xl font-bold">{savedTemplates?.length || 0}</span>
+              <CustomBadge variant="secondary">Saved</CustomBadge>
+            </div>
+          </CustomCardContent>
+        </CustomCard>
+
         <CustomCard hover>
           <CustomCardHeader>
             <FileText className="h-8 w-8 text-primary mb-2" />
@@ -69,8 +119,51 @@ const Dashboard = () => {
           </CustomCardContent>
         </CustomCard>
       </div>
+
+      {/* Saved Templates Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-2xl font-semibold">Your Saved Templates</h3>
+          {savedTemplates.length > 0 && (
+            <CustomButton
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/templates/saved')}
+            >
+              View All
+            </CustomButton>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-8">Loading...</div>
+        ) : savedTemplates.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {savedTemplates.slice(0, 3).map(template => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                onSaveStatusChange={fetchSavedTemplates}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            You haven't saved any templates yet.
+            <div className="mt-4">
+              <CustomButton
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/templates')}
+              >
+                Browse Templates
+              </CustomButton>
+            </div>
+          </div>
+        )}
       </div>
-    );
-  };
-  
-  export default Dashboard;
+    </div>
+  );
+};
+
+export default Dashboard;

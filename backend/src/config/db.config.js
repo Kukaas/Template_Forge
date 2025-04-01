@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Create the connection pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -13,6 +14,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+// Create a promise wrapper
 const promisePool = pool.promise();
 
 export default promisePool;

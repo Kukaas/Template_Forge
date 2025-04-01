@@ -11,6 +11,7 @@ import templateRoutes from './routes/template.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import initializePassport from './config/passport.config.js';
 import { handleAuthCallback, serializeUser, deserializeUser } from './controllers/auth.controller.js';
+import savedTemplateRoutes from './routes/savedTemplate.routes.js';
 
 // Load environment variables before any other imports
 dotenv.config();
@@ -55,6 +56,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api', savedTemplateRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

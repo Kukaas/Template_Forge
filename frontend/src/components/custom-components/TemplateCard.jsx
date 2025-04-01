@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CustomButton from './CustomButton';
 import { FileText, Download, Star, Edit, Trash2, Eye, X, Lock } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { usePremium } from '../../hooks/usePremium';
+import { useAuth } from '../../lib/auth';
+import ConfirmationDialog from './ConfirmationDialog';
 
-const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
+const TemplateCard = ({ template, showActions = false, onEdit, onDelete, onSaveStatusChange }) => {
   const location = useLocation();
   const isAdminSection = location.pathname.startsWith('/admin');
   const [showPreview, setShowPreview] = useState(false);
   const { hasAccess } = usePremium();
   const navigate = useNavigate();
+  const [isSaved, setIsSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showUnsaveConfirmation, setShowUnsaveConfirmation] = useState(false);
+  const { user } = useAuth();
 
   // Add this debug log
   console.log({
@@ -19,6 +25,63 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
     hasAccess: hasAccess(template),
     template: template
   });
+
+  // Check if template is saved on mount
+  useEffect(() => {
+    checkSavedStatus();
+  }, [template.id]);
+
+  const checkSavedStatus = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/templates/${template.id}/saved`,
+        { credentials: 'include' }
+      );
+      const data = await response.json();
+      setIsSaved(data.data.isSaved);
+    } catch (error) {
+      console.error('Error checking saved status:', error);
+    }
+  };
+
+  const handleSaveClick = async () => {
+    if (isSaved) {
+      setShowUnsaveConfirmation(true);
+    } else {
+      await handleSaveAction();
+    }
+  };
+
+  const handleSaveAction = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const method = isSaved ? 'DELETE' : 'POST';
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/templates/${template.id}/save`,
+        {
+          method,
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to save template');
+
+      setIsSaved(!isSaved);
+      toast.success(isSaved ? 'Template removed from saved items' : 'Template saved successfully');
+      if (onSaveStatusChange) onSaveStatusChange();
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast.error('Failed to save template');
+    } finally {
+      setIsLoading(false);
+      setShowUnsaveConfirmation(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!hasAccess(template)) {
@@ -134,7 +197,7 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
             {showActions && isAdminSection && (
               <>
                 <CustomButton
@@ -165,6 +228,16 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
             >
               <Eye className="h-4 w-4 sm:mr-2" />
               <span>Preview</span>
+            </CustomButton>
+            <CustomButton
+              variant="outline"
+              size="sm"
+              onClick={handleSaveClick}
+              className={`w-full ${isSaved ? 'bg-primary/10' : ''}`}
+              disabled={isLoading}
+            >
+              <Star className={`h-4 w-4 sm:mr-2 ${isSaved ? 'fill-primary' : ''}`} />
+              <span>{isSaved ? 'Saved' : 'Save'}</span>
             </CustomButton>
             {template.is_premium && !hasAccess(template) ? (
               <CustomButton
@@ -274,6 +347,19 @@ const TemplateCard = ({ template, showActions = false, onEdit, onDelete }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Unsave Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showUnsaveConfirmation}
+        onClose={() => setShowUnsaveConfirmation(false)}
+        onConfirm={handleSaveAction}
+        title="Remove from Saved"
+        description="Are you sure you want to remove this template from your saved items?"
+        cancelText="Cancel"
+        confirmText="Remove"
+        isLoading={isLoading}
+        variant="danger"
+      />
     </>
   );
 };

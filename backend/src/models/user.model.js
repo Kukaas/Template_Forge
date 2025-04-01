@@ -369,6 +369,70 @@ export class UserModel {
       savingsPercentage: `${plan.savings}%`
     };
   }
+
+  static async saveTemplate(userId, templateId) {
+    try {
+      const id = uuidv4();
+      await promisePool.query(
+        `INSERT INTO saved_templates (id, user_id, template_id)
+         VALUES (?, ?, ?)`,
+        [id, userId, templateId]
+      );
+      return { id, userId, templateId };
+    } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        throw new Error('Template already saved');
+      }
+      console.error('Error saving template:', error);
+      throw error;
+    }
+  }
+
+  static async unsaveTemplate(userId, templateId) {
+    try {
+      const [result] = await promisePool.query(
+        `DELETE FROM saved_templates
+         WHERE user_id = ? AND template_id = ?`,
+        [userId, templateId]
+      );
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error unsaving template:', error);
+      throw error;
+    }
+  }
+
+  static async getSavedTemplates(userId) {
+    try {
+      const [rows] = await promisePool.query(
+        `SELECT t.*, st.created_at as saved_at
+         FROM saved_templates st
+         JOIN templates t ON st.template_id = t.id
+         WHERE st.user_id = ?
+         ORDER BY st.created_at DESC`,
+        [userId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting saved templates:', error);
+      throw error;
+    }
+  }
+
+  static async isTemplateSaved(userId, templateId) {
+    try {
+      const [rows] = await promisePool.query(
+        `SELECT 1 FROM saved_templates
+         WHERE user_id = ? AND template_id = ?
+         LIMIT 1`,
+        [userId, templateId]
+      );
+      return rows.length > 0;
+    } catch (error) {
+      console.error('Error checking if template is saved:', error);
+      throw error;
+    }
+  }
 }
 
 // Modify the createUsersTable function

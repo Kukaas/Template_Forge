@@ -14,6 +14,7 @@ import BusinessTemplates from './pages/BusinessTemplates';
 import SuperAdmin from './pages/admin/SuperAdmin';
 import ManageTemplates from './pages/admin/ManageTemplates';
 import Pricing from './pages/Pricing';
+import SavedTemplates from './pages/SavedTemplates';
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,16 @@ function App() {
 
               {/* Add Pricing Route */}
               <Route path="pricing" element={<Pricing />} />
+
+              {/* Add Saved Templates Route */}
+              <Route
+                path="templates/saved"
+                element={
+                  <PrivateRoute>
+                    <SavedTemplates />
+                  </PrivateRoute>
+                }
+              />
             </Route>
           </Routes>
         </AuthProvider>

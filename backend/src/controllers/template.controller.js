@@ -4,6 +4,7 @@ import Template from '../models/template.model.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import UserModel from '../models/user.model.js';
+import promisePool from '../config/db.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -381,6 +382,155 @@ export const createTemplate = async (req, res) => {
     res.status(500).json({
       message: 'Error creating template',
       error: error.message
+    });
+  }
+};
+
+export const getSavedTemplates = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('Fetching saved templates for user:', userId); // Debug log
+
+    const [rows] = await promisePool.query(
+      `SELECT t.*, st.created_at as saved_at
+       FROM saved_templates st
+       JOIN templates t ON st.template_id = t.id
+       WHERE st.user_id = ?
+       ORDER BY st.created_at DESC`,
+      [userId]
+    );
+
+    console.log('Found saved templates:', rows.length); // Debug log
+
+    res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Error getting saved templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting saved templates',
+      error: error.message // Add error message for debugging
+    });
+  }
+};
+
+export const saveTemplate = async (req, res) => {
+  try {
+    const { id: templateId } = req.params;
+    const userId = req.user.id;
+
+    console.log('Saving template:', { userId, templateId }); // Debug log
+
+    // Check if template exists
+    const [template] = await promisePool.query(
+      'SELECT id FROM templates WHERE id = ?',
+      [templateId]
+    );
+
+    if (!template.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found'
+      });
+    }
+
+    // Check if already saved
+    const [existing] = await promisePool.query(
+      'SELECT id FROM saved_templates WHERE user_id = ? AND template_id = ?',
+      [userId, templateId]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Template already saved'
+      });
+    }
+
+    // Save the template
+    const [result] = await promisePool.query(
+      'INSERT INTO saved_templates (id, user_id, template_id) VALUES (UUID(), ?, ?)',
+      [userId, templateId]
+    );
+
+    console.log('Template saved successfully:', result); // Debug log
+
+    res.status(201).json({
+      success: true,
+      message: 'Template saved successfully'
+    });
+  } catch (error) {
+    console.error('Error saving template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error saving template',
+      error: error.message // Add error message for debugging
+    });
+  }
+};
+
+export const unsaveTemplate = async (req, res) => {
+  try {
+    const { id: templateId } = req.params;
+    const userId = req.user.id;
+
+    console.log('Unsaving template:', { userId, templateId }); // Debug log
+
+    const [result] = await promisePool.query(
+      'DELETE FROM saved_templates WHERE user_id = ? AND template_id = ?',
+      [userId, templateId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found in saved items'
+      });
+    }
+
+    console.log('Template unsaved successfully:', result); // Debug log
+
+    res.json({
+      success: true,
+      message: 'Template removed from saved items'
+    });
+  } catch (error) {
+    console.error('Error removing saved template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing template from saved items',
+      error: error.message // Add error message for debugging
+    });
+  }
+};
+
+export const checkSavedStatus = async (req, res) => {
+  try {
+    const { id: templateId } = req.params;
+    const userId = req.user.id;
+
+    console.log('Checking saved status:', { userId, templateId }); // Debug log
+
+    const [rows] = await promisePool.query(
+      'SELECT id FROM saved_templates WHERE user_id = ? AND template_id = ?',
+      [userId, templateId]
+    );
+
+    const isSaved = rows.length > 0;
+    console.log('Template saved status:', isSaved); // Debug log
+
+    res.json({
+      success: true,
+      data: { isSaved }
+    });
+  } catch (error) {
+    console.error('Error checking saved status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking saved status',
+      error: error.message // Add error message for debugging
     });
   }
 };

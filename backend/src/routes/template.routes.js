@@ -4,7 +4,11 @@ import {
   getTemplateById,
   downloadTemplate,
   getTemplatePreview,
-  createTemplate
+  createTemplate,
+  saveTemplate,
+  unsaveTemplate,
+  getSavedTemplates,
+  checkSavedStatus
 } from '../controllers/template.controller.js';
 import { isAuthenticated } from '../middleware/auth.middleware.js';
 import multer from 'multer';
@@ -27,6 +31,9 @@ const upload = multer({ storage });
 // Get all templates with optional filtering
 router.get('/', getTemplates);
 
+// Get saved templates - Move this before the :id routes to avoid conflict
+router.get('/saved', isAuthenticated, getSavedTemplates);
+
 // Get a single template by ID
 router.get('/:id', getTemplateById);
 
@@ -36,6 +43,12 @@ router.get('/:id/download', isAuthenticated, downloadTemplate);
 // Get template preview
 router.get('/:id/preview', getTemplatePreview);
 
-router.post('/templates', upload.single('file'), createTemplate);
+// Save/unsave template routes
+router.post('/:id/save', isAuthenticated, saveTemplate);
+router.delete('/:id/save', isAuthenticated, unsaveTemplate);
+router.get('/:id/saved', isAuthenticated, checkSavedStatus);
+
+// Create template route
+router.post('/', upload.single('file'), createTemplate);
 
 export default router;
