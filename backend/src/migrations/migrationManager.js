@@ -1,10 +1,12 @@
 import promisePool from '../config/db.config.js';
 import * as createUsersTable from './20240101000000_create_users_table.js';
+import * as createTemplatesTable from './20240101000001_create_templates_table.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const migrations = [
-  createUsersTable
+  createUsersTable,
+  createTemplatesTable
 ];
 
 const checkEnvironment = () => {

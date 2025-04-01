@@ -1,54 +1,7 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CustomButton, CustomBadge, TemplateCard } from '../components/custom-components';
 import { Search } from 'lucide-react';
-
-const MOCK_BUSINESS_TEMPLATES = [
-  {
-    id: 1,
-    title: 'Business Plan',
-    category: 'Planning',
-    description: 'Comprehensive business plan template with financial projections.',
-    downloads: 4567,
-    format: 'DOCX',
-    featured: true
-  },
-  {
-    id: 2,
-    title: 'Project Proposal',
-    category: 'Proposals',
-    description: 'Professional project proposal template for business initiatives.',
-    downloads: 3890,
-    format: 'DOCX',
-    featured: true
-  },
-  {
-    id: 3,
-    title: 'Marketing Plan',
-    category: 'Marketing',
-    description: 'Detailed marketing strategy and execution plan template.',
-    downloads: 2867,
-    format: 'DOCX',
-    featured: false
-  },
-  {
-    id: 4,
-    title: 'Financial Report',
-    category: 'Finance',
-    description: 'Standard financial reporting template with charts and tables.',
-    downloads: 3100,
-    format: 'XLSX',
-    featured: false
-  },
-  {
-    id: 5,
-    title: 'SWOT Analysis',
-    category: 'Strategy',
-    description: 'Strategic SWOT analysis template for business evaluation.',
-    downloads: 2800,
-    format: 'PPTX',
-    featured: true
-  }
-];
 
 const CATEGORIES = ['All', 'Planning', 'Proposals', 'Marketing', 'Finance', 'Strategy'];
 
@@ -56,12 +9,50 @@ const BusinessTemplates = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const filteredTemplates = MOCK_BUSINESS_TEMPLATES.filter(template => {
+  // Fetch templates from the backend
+  const { data: templates = [], isLoading, error } = useQuery({
+    queryKey: ['templates', 'business'],
+    queryFn: async () => {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/templates?mainCategory=business`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch templates');
+      }
+      return response.json();
+    }
+  });
+
+  const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          template.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || template.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading templates...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-destructive">Error loading templates. Please try again later.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

@@ -3,8 +3,11 @@ import express from 'express';
 import cors from 'cors';
 import passport from 'passport';
 import session from 'express-session';
+import path from 'path';
 import promisePool from './config/db.config.js';
 import authRoutes from './routes/auth.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import templateRoutes from './routes/template.routes.js';
 import initializePassport from './config/passport.config.js';
 import { handleAuthCallback, serializeUser, deserializeUser } from './controllers/auth.controller.js';
 
@@ -43,8 +46,13 @@ app.use(passport.session());
 // Initialize passport with handlers - after middleware setup
 initializePassport(handleAuthCallback, serializeUser, deserializeUser);
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/templates', templateRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

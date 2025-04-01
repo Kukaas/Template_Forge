@@ -1,54 +1,7 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CustomButton, CustomBadge, TemplateCard } from '../components/custom-components';
 import { Search } from 'lucide-react';
-
-const MOCK_RESUME_TEMPLATES = [
-  {
-    id: 1,
-    title: 'Professional Resume',
-    category: 'Corporate',
-    description: 'Clean and professional resume template for experienced professionals.',
-    downloads: 3456,
-    format: 'DOCX',
-    featured: true
-  },
-  {
-    id: 2,
-    title: 'Creative Portfolio CV',
-    category: 'Creative',
-    description: 'Stand out with this modern and creative CV design for creative professionals.',
-    downloads: 2890,
-    format: 'DOCX',
-    featured: true
-  },
-  {
-    id: 3,
-    title: 'Technical Resume',
-    category: 'Technical',
-    description: 'Specialized resume template for IT and technical professionals.',
-    downloads: 2567,
-    format: 'DOCX',
-    featured: false
-  },
-  {
-    id: 4,
-    title: 'Entry Level Resume',
-    category: 'Student',
-    description: 'Perfect for recent graduates and entry-level positions.',
-    downloads: 4100,
-    format: 'DOCX',
-    featured: false
-  },
-  {
-    id: 5,
-    title: 'Executive CV',
-    category: 'Corporate',
-    description: 'Premium CV template for senior executives and leaders.',
-    downloads: 1800,
-    format: 'DOCX',
-    featured: true
-  }
-];
 
 const CATEGORIES = ['All', 'Corporate', 'Creative', 'Technical', 'Student'];
 
@@ -56,12 +9,50 @@ const ResumeTemplates = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const filteredTemplates = MOCK_RESUME_TEMPLATES.filter(template => {
+  // Fetch templates from the backend
+  const { data: templates = [], isLoading, error } = useQuery({
+    queryKey: ['templates', 'resume'],
+    queryFn: async () => {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/templates?mainCategory=resume`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch templates');
+      }
+      return response.json();
+    }
+  });
+
+  const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          template.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || template.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading templates...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-destructive">Error loading templates. Please try again later.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

@@ -12,6 +12,7 @@ import AcademicTemplates from './pages/AcademicTemplates';
 import ResumeTemplates from './pages/ResumeTemplates';
 import BusinessTemplates from './pages/BusinessTemplates';
 import SuperAdmin from './pages/admin/SuperAdmin';
+import ManageTemplates from './pages/admin/ManageTemplates';
 
 const queryClient = new QueryClient();
 
@@ -69,12 +70,20 @@ function App() {
                 }
               />
               
-              {/* Super Admin Route */}
+              {/* Super Admin Routes */}
               <Route
                 path="admin"
                 element={
                   <PrivateRoute>
                     <SuperAdmin />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="admin/templates"
+                element={
+                  <PrivateRoute>
+                    <ManageTemplates />
                   </PrivateRoute>
                 }
               />

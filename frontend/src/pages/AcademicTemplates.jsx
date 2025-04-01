@@ -1,54 +1,7 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CustomButton, CustomBadge, TemplateCard } from '../components/custom-components';
 import { Search, Filter } from 'lucide-react';
-
-const MOCK_TEMPLATES = [
-  {
-    id: 1,
-    title: 'Research Paper Template',
-    category: 'Research',
-    description: 'Professional research paper template with APA formatting and citations.',
-    downloads: 2345,
-    format: 'DOCX',
-    featured: true
-  },
-  {
-    id: 2,
-    title: 'Thesis Proposal',
-    category: 'Thesis',
-    description: 'Comprehensive thesis proposal template with guidelines and examples.',
-    downloads: 1890,
-    format: 'DOCX',
-    featured: true
-  },
-  {
-    id: 3,
-    title: 'Lab Report Template',
-    category: 'Laboratory',
-    description: 'Structured lab report template following scientific standards.',
-    downloads: 1567,
-    format: 'DOCX',
-    featured: false
-  },
-  {
-    id: 4,
-    title: 'Literature Review Template',
-    category: 'Research',
-    description: 'Template for organizing and writing literature reviews.',
-    downloads: 2100,
-    format: 'DOCX',
-    featured: false
-  },
-  {
-    id: 5,
-    title: 'Assignment Cover Page',
-    category: 'General',
-    description: 'Professional cover page template for academic assignments.',
-    downloads: 3200,
-    format: 'DOCX',
-    featured: false
-  }
-];
 
 const CATEGORIES = ['All', 'Research', 'Thesis', 'Laboratory', 'General'];
 
@@ -56,12 +9,50 @@ const AcademicTemplates = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const filteredTemplates = MOCK_TEMPLATES.filter(template => {
+  // Fetch templates from the backend
+  const { data: templates = [], isLoading, error } = useQuery({
+    queryKey: ['templates', 'academic'],
+    queryFn: async () => {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/templates?mainCategory=academic`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch templates');
+      }
+      return response.json();
+    }
+  });
+
+  const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          template.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || template.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading templates...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-destructive">Error loading templates. Please try again later.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
